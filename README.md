@@ -1,0 +1,2 @@
+# WSG
+World Simulation Game

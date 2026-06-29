@@ -10,7 +10,7 @@
    Compacted for Engine v2 0.1.1.
    ============================================================ */
 
-const BUILD_LABEL = 'WSG Engine v2 Build 0.1.1 - Compact Static Worker Build';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.1.2 - Worker Bootstrap Hotfix';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',

@@ -6,11 +6,11 @@
 
 /* ============================================================
    Protocol constants
-   Source: src/message-protocol.js
-   Compacted for Engine v2 0.1.5.
+   Source section: message-protocol.js
+   Compacted for Engine v2 0.1.6.
    ============================================================ */
 
-const BUILD_LABEL = 'WSG Engine v2 Build 0.1.5 - Explorer Layout Polish';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.1.6 - Classic Visual Parity';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',
@@ -111,8 +111,8 @@ function makeEnvelope(type, payload = {}) {
 
 /* ============================================================
    Utility math
-   Source: src/util/math.js
-   Compacted for Engine v2 0.1.5.
+   Source section: util/math.js
+   Compacted for Engine v2 0.1.6.
    ============================================================ */
 
 function clamp(value, min, max) {
@@ -157,8 +157,8 @@ function finite01(value) {
 
 /* ============================================================
    Deterministic random
-   Source: src/util/random.js
-   Compacted for Engine v2 0.1.5.
+   Source section: util/random.js
+   Compacted for Engine v2 0.1.6.
    ============================================================ */
 
 function stringToSeed(input) {
@@ -195,8 +195,8 @@ function hashUnit(seed, a = 0, b = 0) {
 
 /* ============================================================
    Performance helpers
-   Source: src/util/perf.js
-   Compacted for Engine v2 0.1.5.
+   Source section: util/perf.js
+   Compacted for Engine v2 0.1.6.
    ============================================================ */
 
 function nowMs() {
@@ -222,8 +222,8 @@ function estimateTypedPayloadBytes(payload) {
 
 /* ============================================================
    State schema
-   Source: src/state-schema.js
-   Compacted for Engine v2 0.1.5.
+   Source section: state-schema.js
+   Compacted for Engine v2 0.1.6.
    ============================================================ */
 
 const STATE_SCHEMA_VERSION = 'engine-v2-state-schema-0.1.0';
@@ -426,8 +426,8 @@ function validateArrayShape(state) {
 
 /* ============================================================
    Mesh
-   Source: src/sim/mesh.js
-   Compacted for Engine v2 0.1.5.
+   Source section: sim/mesh.js
+   Compacted for Engine v2 0.1.6.
    ============================================================ */
 
 
@@ -634,8 +634,8 @@ function meshSignature(mesh) {
 
 /* ============================================================
    Summaries and signatures
-   Source: src/sim/summaries.js
-   Compacted for Engine v2 0.1.5.
+   Source section: sim/summaries.js
+   Compacted for Engine v2 0.1.6.
    ============================================================ */
 
 
@@ -900,8 +900,8 @@ function localLimitingFactor(state, i) {
 
 /* ============================================================
    Generation
-   Source: src/sim/generation.js
-   Compacted for Engine v2 0.1.5.
+   Source section: sim/generation.js
+   Compacted for Engine v2 0.1.6.
    ============================================================ */
 
 
@@ -1077,8 +1077,8 @@ function seedEarthlikeLife(state, mesh) {
 
 /* ============================================================
    Physical systems
-   Source: src/sim/physical.js
-   Compacted for Engine v2 0.1.5.
+   Source section: sim/physical.js
+   Compacted for Engine v2 0.1.6.
    ============================================================ */
 
 
@@ -1111,8 +1111,8 @@ function computeHabitability(state, i) {
 
 /* ============================================================
    Water
-   Source: src/sim/water.js
-   Compacted for Engine v2 0.1.5.
+   Source section: sim/water.js
+   Compacted for Engine v2 0.1.6.
    ============================================================ */
 
 
@@ -1164,8 +1164,8 @@ function stepWater(state, mesh) {
 
 /* ============================================================
    Primitive life
-   Source: src/sim/life.js
-   Compacted for Engine v2 0.1.5.
+   Source section: sim/life.js
+   Compacted for Engine v2 0.1.6.
    ============================================================ */
 
 
@@ -1226,8 +1226,8 @@ function stepLife(state, mesh) {
 
 /* ============================================================
    Ecosystems
-   Source: src/sim/ecosystems.js
-   Compacted for Engine v2 0.1.5.
+   Source section: sim/ecosystems.js
+   Compacted for Engine v2 0.1.6.
    ============================================================ */
 
 
@@ -1246,8 +1246,8 @@ function stepEcosystems(state) {
 
 /* ============================================================
    Stewardship
-   Source: src/sim/stewardship.js
-   Compacted for Engine v2 0.1.5.
+   Source section: sim/stewardship.js
+   Compacted for Engine v2 0.1.6.
    ============================================================ */
 
 
@@ -1264,8 +1264,8 @@ function stepStewardship(state) {
 
 /* ============================================================
    Civilisation diagnostics
-   Source: src/sim/civilisation.js
-   Compacted for Engine v2 0.1.5.
+   Source section: sim/civilisation.js
+   Compacted for Engine v2 0.1.6.
    ============================================================ */
 
 
@@ -1288,8 +1288,8 @@ function stepCivilisation(state) {
 
 /* ============================================================
    Tools
-   Source: src/sim/tools.js
-   Compacted for Engine v2 0.1.5.
+   Source section: sim/tools.js
+   Compacted for Engine v2 0.1.6.
    ============================================================ */
 
 
@@ -1443,8 +1443,8 @@ function limitingFactor(state, i) {
 
 /* ============================================================
    Probes
-   Source: src/sim/probes.js
-   Compacted for Engine v2 0.1.5.
+   Source section: sim/probes.js
+   Compacted for Engine v2 0.1.6.
    ============================================================ */
 
 
@@ -1560,7 +1560,7 @@ function executeProbe(probeId, ctx, startSig) {
 
 /* ============================================================
    Worker command dispatcher
-   Source: src/workers/simulation-worker.js
+   Source section: workers/simulation-worker.js
    ============================================================ */
 
 

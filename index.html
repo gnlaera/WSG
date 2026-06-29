@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
-  <title>WSG Engine v2 Build 0.1.4 - Hover-Stable Viewport Hotfix</title>
+  <title>WSG Engine v2 Build 0.1.5 - Explorer Layout Polish</title>
   <style>
 :root {
   color-scheme: dark;
@@ -37,7 +37,7 @@ button, select, input {
   background: #0b121b;
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 0.55rem 0.65rem;
+  padding: 0.5rem 0.6rem;
 }
 button {
   cursor: pointer;
@@ -47,9 +47,9 @@ button {
 button:hover { filter: brightness(1.12); }
 label {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.32rem;
   color: var(--muted);
-  margin: 0.65rem 0;
+  margin: 0.55rem 0;
 }
 label.inline {
   display: flex;
@@ -58,52 +58,63 @@ label.inline {
 }
 input[type="range"] { padding: 0; }
 h1, h2, h3, h4, p { margin-top: 0; }
-h1 { font-size: 1.05rem; margin-bottom: 0.25rem; }
-h2 { font-size: 0.92rem; text-transform: uppercase; letter-spacing: 0.08em; color: #c9d8e8; }
-h3 { font-size: 1rem; }
+h1 { font-size: 1.02rem; margin-bottom: 0.15rem; }
+h2 { font-size: 0.84rem; text-transform: uppercase; letter-spacing: 0.08em; color: #c9d8e8; margin-bottom: 0.65rem; }
+h3 { font-size: 0.95rem; }
 h4 { margin-bottom: 0.3rem; color: #d9e5f2; }
-hr { border: 0; border-top: 1px solid var(--line); margin: 1rem 0; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 0.9rem 0; }
 
 .topbar {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 1rem;
   align-items: center;
-  padding: 0.9rem 1.1rem;
+  padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--line);
   background: #08111b;
 }
 .topbar p { color: var(--muted); margin-bottom: 0; }
+.topbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.45rem;
+}
 .status-pill {
-  padding: 0.5rem 0.75rem;
+  padding: 0.45rem 0.7rem;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: #0d1722;
   white-space: nowrap;
 }
+.toggle-button {
+  padding: 0.42rem 0.58rem;
+  font-size: 0.86rem;
+}
 
 .app-shell {
   display: grid;
-  grid-template-columns: minmax(260px, 0.8fr) minmax(420px, 2fr) minmax(300px, 1fr);
-  gap: 1rem;
-  padding: 1rem;
-  height: calc(100vh - 76px);
+  grid-template-columns: minmax(240px, 285px) minmax(520px, 1fr) minmax(260px, 315px);
+  gap: 0.8rem;
+  padding: 0.8rem;
+  height: calc(100vh - 68px);
   min-height: 560px;
   overflow: hidden;
   align-items: stretch;
 }
 .control-column, .info-column {
   display: grid;
-  gap: 1rem;
+  gap: 0.8rem;
   align-content: start;
   min-height: 0;
   overflow: auto;
-  padding-right: 0.15rem;
+  padding-right: 0.12rem;
 }
 .planet-column {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto minmax(120px, 0.32fr);
-  gap: 0.8rem;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  gap: 0.65rem;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -111,12 +122,13 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 1rem 0; }
 .card, .canvas-card {
   background: linear-gradient(180deg, var(--panel), #0d141d);
   border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 1rem;
+  border-radius: 13px;
+  padding: 0.85rem;
   box-shadow: 0 10px 30px rgba(0,0,0,0.24);
 }
+.control-column .card { padding: 0.8rem; }
 .canvas-card {
-  padding: 0.65rem;
+  padding: 0.55rem;
   min-height: 0;
   overflow: hidden;
   display: flex;
@@ -135,26 +147,30 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 1rem 0; }
 .button-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.7rem;
+  gap: 0.45rem;
+  margin-top: 0.6rem;
 }
 .button-row button { flex: 1 1 auto; }
 .status-line {
   color: var(--muted);
-  padding: 0.65rem 0.8rem;
+  padding: 0.62rem 0.75rem;
   border: 1px solid var(--line);
   background: #0b121a;
   border-radius: 10px;
 }
+.quick-start {
+  color: #c7d6e7;
+  background: rgba(118,183,255,0.07);
+}
 .metric-grid, #selected-panel, #stats-panel, #diagnostics-panel {
   display: grid;
-  gap: 0.45rem;
+  gap: 0.4rem;
 }
 .metric {
   display: grid;
-  grid-template-columns: 1.1fr 1fr;
-  gap: 0.5rem;
-  padding: 0.45rem 0.55rem;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 0.45rem;
+  padding: 0.42rem 0.52rem;
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: 8px;
   background: rgba(255,255,255,0.025);
@@ -171,41 +187,45 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 1rem 0; }
 }
 .bottom-panels {
   display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 1rem;
-  padding: 0 1rem 1rem;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+  gap: 0.8rem;
+  padding: 0 0.8rem 0.8rem;
 }
 .ledger-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(180px, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
+  gap: 0.65rem;
 }
 .ledger-grid section {
-  padding: 0.8rem;
+  padding: 0.7rem;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: rgba(255,255,255,0.025);
 }
 .ledger-grid p { color: var(--muted); margin-bottom: 0; }
 .event-log, .probe-output {
-  max-height: 240px;
+  max-height: 220px;
   overflow: auto;
   display: grid;
-  gap: 0.45rem;
+  gap: 0.4rem;
 }
 .log-entry, .probe {
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 8px;
-  padding: 0.5rem;
+  padding: 0.48rem;
   color: var(--muted);
   background: rgba(255,255,255,0.025);
 }
 .probe.pass strong { color: var(--good); }
 .probe.warn strong { color: var(--warn); }
 .probe.fail strong { color: var(--bad); }
-.compact-card { min-height: 150px; }
+.compact-card { max-height: 170px; overflow: auto; }
+.panel-hidden { display: none !important; }
+.small-note { color: var(--muted); font-size: 0.9rem; margin-bottom: 0.55rem; }
 
 @media (max-width: 1180px) {
+  .topbar { grid-template-columns: 1fr; }
+  .topbar-actions { justify-content: flex-start; }
   .app-shell {
     grid-template-columns: 1fr;
     height: auto;
@@ -213,10 +233,10 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 1rem 0; }
     overflow: visible;
   }
   .control-column, .info-column {
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     overflow: visible;
   }
-  .planet-column { grid-template-rows: minmax(420px, 70vh) auto auto; overflow: visible; }
+  .planet-column { grid-template-rows: minmax(420px, 72vh) auto auto; overflow: visible; }
   .bottom-panels { grid-template-columns: 1fr; }
   .ledger-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 }
@@ -226,14 +246,20 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 1rem 0; }
 <body>
   <header class="topbar">
     <div>
-      <h1 id="build-label">WSG Engine v2 Build 0.1.4 - Hover-Stable Viewport Hotfix</h1>
-      <p id="summary-line">Compact static Worker build with hover-stable viewport fitting and Worker startup fallback. Deploy these three files together.</p>
+      <h1 id="build-label">WSG Engine v2 Build 0.1.5 - Explorer Layout Polish</h1>
+      <p id="summary-line">Explorer Mode | compact static Worker build | deploy these three files together.</p>
     </div>
-    <div class="status-pill">Worker: <span id="worker-status">initialising</span></div>
+    <div class="topbar-actions">
+      <button id="toggle-trends" class="toggle-button" type="button">Show Trends</button>
+      <button id="toggle-diagnostics" class="toggle-button" type="button">Show Dev/Test</button>
+      <button id="toggle-ledger" class="toggle-button" type="button">Show Migration Ledger</button>
+      <button id="toggle-event-log" class="toggle-button" type="button">Show Event Log</button>
+      <div class="status-pill">Worker: <span id="worker-status">initialising</span></div>
+    </div>
   </header>
 
   <main class="app-shell">
-    <aside class="control-column" aria-label="Controls">
+    <aside class="control-column" aria-label="Explorer controls">
       <section class="card">
         <h2>World template</h2>
         <label>Template<select id="world-template"></select></label>
@@ -282,27 +308,28 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 1rem 0; }
       </section>
     </aside>
 
-    <section class="planet-column" aria-label="Planet canvas">
+    <section class="planet-column" aria-label="Planet explorer">
       <div class="canvas-card">
         <canvas id="planet-canvas" width="980" height="720" aria-label="Planet canvas"></canvas>
       </div>
-      <div id="status-line" class="status-line">Use Generate, then click the planet to inspect or apply the selected tool. Deployment: keep index.html, app.js, and simulation-worker.js together in the same GitHub Pages folder.</div>
+      <div id="status-line" class="status-line quick-start">Quick Start: Generate planet → select tool → click planet → Step or Run time → inspect consequences.</div>
       <section class="card compact-card">
         <h2>Selected cell</h2>
         <div id="selected-panel"><p>No cell selected.</p></div>
       </section>
     </section>
 
-    <aside class="info-column" aria-label="Panels">
+    <aside class="info-column" aria-label="Explorer metrics">
       <section class="card">
         <h2>Core planet stats</h2>
         <div id="stats-panel" class="metric-grid"><p>Waiting for state summary.</p></div>
       </section>
-      <section class="card">
+      <section class="card panel-hidden" id="trends-card">
         <h2>Trends</h2>
+        <p class="small-note">Compact trend summary. Hidden by default to keep Explorer Mode planet-first.</p>
         <div id="trends-panel"><p>Trend samples will appear after generation and ticks.</p></div>
       </section>
-      <section class="card">
+      <section class="card panel-hidden" id="diagnostics-card">
         <h2>Developer / Diagnostics</h2>
         <div id="diagnostics-panel" class="metric-grid"><p>Waiting for diagnostics.</p></div>
         <hr>
@@ -316,14 +343,16 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 1rem 0; }
     </aside>
   </main>
 
-  <section class="bottom-panels">
-    <article class="card" id="migration-ledger"></article>
-    <article class="card">
+  <section class="bottom-panels panel-hidden" id="advanced-bottom-panels">
+    <article class="card panel-hidden" id="migration-ledger-card">
+      <div id="migration-ledger"></div>
+    </article>
+    <article class="card panel-hidden" id="event-log-card">
       <h3>Event log</h3>
       <div id="event-log" class="event-log"></div>
     </article>
   </section>
 
-  <script defer src="./app.js?v=0.1.4"></script>
+  <script defer src="./app.js?v=0.1.5"></script>
 </body>
 </html>

@@ -4,339 +4,270 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
-  <title>WSG Engine v2 Build 0.1.5 - Explorer Layout Polish</title>
+  <title>WSG Engine v2 Build 0.1.6 - Classic Visual Parity</title>
   <style>
 :root {
   color-scheme: dark;
-  --bg: #070b10;
-  --panel: #111a24;
-  --panel-2: #172333;
-  --text: #e7edf5;
-  --muted: #9fb0c3;
-  --line: #27384a;
-  --accent: #76b7ff;
-  --good: #6ed28d;
-  --warn: #e7c16b;
-  --bad: #ee7f7f;
+  --left-w: 228px;
+  --right-w: 300px;
+  --bg: #071019;
+  --bg2: #0b1622;
+  --panel: rgba(13, 24, 36, 0.86);
+  --panel2: rgba(18, 32, 46, 0.94);
+  --line: rgba(170, 207, 228, 0.18);
+  --text: #e8f4f7;
+  --muted: #9cb4bd;
+  --accent: #8bd3ff;
+  --accent2: #9be282;
+  --warn: #ffd166;
+  --bad: #ff8b8b;
+  --good: #a4f3a1;
+  --shadow: 0 20px 70px rgba(0,0,0,0.38);
+  --ui-letter-compress: -0.4px;
+  --ui-font-size: 13.6px;
 }
-
 * { box-sizing: border-box; }
-html, body, .app-shell, .planet-column, .canvas-card, #planet-canvas { overflow-anchor: none; }
-html, body { height: 100%; }
+html, body { height: 100%; margin: 0; overflow: hidden; }
 body {
-  margin: 0;
-  background: var(--bg);
+  background: radial-gradient(circle at 50% 45%, #102539 0%, var(--bg) 58%, #03070c 100%);
   color: var(--text);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 14px;
+  font-family: "Segoe UI", "Segoe UI Variable Text", "Segoe UI Variable", Arial, sans-serif;
+  font-size: var(--ui-font-size);
+  letter-spacing: var(--ui-letter-compress);
+  font-stretch: 92%;
 }
-
-button, select, input {
+button, input, select {
   font: inherit;
   color: var(--text);
-  background: #0b121b;
+  font-family: "Segoe UI", "Segoe UI Variable Text", "Segoe UI Variable", Arial, sans-serif;
+  letter-spacing: var(--ui-letter-compress);
+}
+button, select, input[type="number"], input[type="text"] {
+  background: rgba(255,255,255,0.06);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 0.5rem 0.6rem;
+  border-radius: 10px;
+  padding: 8px 10px;
+  outline: none;
 }
-button {
-  cursor: pointer;
-  background: linear-gradient(180deg, #1f3d5a, #13283c);
-  border-color: #365b7b;
-}
-button:hover { filter: brightness(1.12); }
-label {
-  display: grid;
-  gap: 0.32rem;
-  color: var(--muted);
-  margin: 0.55rem 0;
-}
-label.inline {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-input[type="range"] { padding: 0; }
+button { cursor: pointer; transition: border-color 0.15s, background 0.15s, transform 0.05s; }
+button:hover { border-color: rgba(139,211,255,0.55); background: rgba(139,211,255,0.10); }
+button:active { transform: translateY(1px); }
+button.primary { background: rgba(139,211,255,0.18); border-color: rgba(139,211,255,0.50); }
+button.active { background: rgba(155,226,130,0.16); border-color: rgba(155,226,130,0.55); }
+select option { background: #101b27; color: #e8f4f7; }
+input[type="range"] { width: 100%; padding: 0; }
 h1, h2, h3, h4, p { margin-top: 0; }
-h1 { font-size: 1.02rem; margin-bottom: 0.15rem; }
-h2 { font-size: 0.84rem; text-transform: uppercase; letter-spacing: 0.08em; color: #c9d8e8; margin-bottom: 0.65rem; }
-h3 { font-size: 0.95rem; }
-h4 { margin-bottom: 0.3rem; color: #d9e5f2; }
+h2 { font-size: 13px; text-transform: none; letter-spacing: 0; color: #f2fbff; margin: 0 0 8px; }
+h3 { margin: 0 0 8px 0; font-size: 14px; }
+h4 { margin: 0 0 6px; font-size: 12px; color: var(--accent); }
 hr { border: 0; border-top: 1px solid var(--line); margin: 0.9rem 0; }
-
+.small { font-size: 12px; color: var(--muted); }
+.kpi { color: var(--accent); font-weight: 700; }
+.app { height: 100%; display: grid; grid-template-rows: auto 1fr auto; }
 .topbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 1rem;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  padding: 0.75rem 1rem;
+  align-content: flex-start;
+  gap: 6px;
+  padding: 6px 8px;
+  background: rgba(5, 11, 18, 0.82);
   border-bottom: 1px solid var(--line);
-  background: #08111b;
+  backdrop-filter: blur(10px);
+  overflow: visible;
 }
-.topbar p { color: var(--muted); margin-bottom: 0; }
-.topbar-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 0.45rem;
-}
-.status-pill {
-  padding: 0.45rem 0.7rem;
+.brand { display: flex; flex-direction: column; flex: 1 1 225px; min-width: 205px; max-width: 330px; line-height: 1.05; }
+.brand strong { font-size: 12.8px; letter-spacing: -0.4px; }
+.brand span { font-size: 9.8px; color: var(--muted); line-height: 1.12; }
+.topbar button, .topbar select, .topbar input[type="text"], .topbar input[type="number"] { padding: 6px 8px; border-radius: 8px; min-height: 32px; }
+.topbar button { white-space: nowrap; flex: 0 1 auto; }
+.topbar label.small { font-size: 10.4px; display: grid; gap: 3px; align-items: center; margin: 0; }
+.topbar select { min-width: 0; }
+.headerTemplateControl { grid-template-columns: auto minmax(180px, 1fr); gap: 6px; flex: 0 1 300px; min-width: 235px; max-width: 330px; color: var(--muted); }
+.headerTemplateControl select { width: 100%; min-width: 178px; max-width: none; }
+.seedBox { width: 112px; }
+.yearBox { width: 58px; }
+#speed-select { flex: 0 0 76px; width: 76px; }
+#visual-mode { flex: 1 1 126px; }
+#layer-select { flex: 1 1 150px; }
+.layerControls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; flex: 2 1 560px; min-width: 330px; }
+.layerControls select { min-width: 118px; max-width: 175px; }
+.opacityControl { display: flex !important; align-items: center; gap: 6px; white-space: nowrap; flex: 0 1 auto; }
+.opacityControl input { width: 72px; }
+.status-pill { padding: 7px 10px; border: 1px solid var(--line); border-radius: 999px; background: rgba(0,0,0,0.22); white-space: nowrap; color: var(--text); }
+.toggle-button { padding: 6px 8px; }
+.main { min-height: 0; display: grid; grid-template-columns: var(--left-w) minmax(420px, 1fr) var(--right-w); gap: 10px; padding: 10px; transition: grid-template-columns 0.12s ease; }
+.panel, .card, .canvas-card {
+  background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 999px;
-  background: #0d1722;
-  white-space: nowrap;
-}
-.toggle-button {
-  padding: 0.42rem 0.58rem;
-  font-size: 0.86rem;
-}
-
-.app-shell {
-  display: grid;
-  grid-template-columns: minmax(240px, 285px) minmax(520px, 1fr) minmax(260px, 315px);
-  gap: 0.8rem;
-  padding: 0.8rem;
-  height: calc(100vh - 68px);
-  min-height: 560px;
-  overflow: hidden;
-  align-items: stretch;
-}
-.control-column, .info-column {
-  display: grid;
-  gap: 0.8rem;
-  align-content: start;
+  border-radius: 16px;
+  box-shadow: var(--shadow);
   min-height: 0;
-  overflow: auto;
-  padding-right: 0.12rem;
 }
-.planet-column {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto auto;
-  gap: 0.65rem;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-}
-.card, .canvas-card {
-  background: linear-gradient(180deg, var(--panel), #0d141d);
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  padding: 0.85rem;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.24);
-}
-.control-column .card { padding: 0.8rem; }
-.canvas-card {
-  padding: 0.55rem;
-  min-height: 0;
-  overflow: hidden;
-  display: flex;
-}
-#planet-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  flex: 1 1 auto;
-  contain: strict;
-  border-radius: 10px;
-  background: #05080d;
-  touch-action: none;
-}
-.button-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  margin-top: 0.6rem;
-}
-.button-row button { flex: 1 1 auto; }
-.status-line {
-  color: var(--muted);
-  padding: 0.62rem 0.75rem;
-  border: 1px solid var(--line);
-  background: #0b121a;
-  border-radius: 10px;
-}
-.quick-start {
-  color: #c7d6e7;
-  background: rgba(118,183,255,0.07);
-}
-.metric-grid, #selected-panel, #stats-panel, #diagnostics-panel {
-  display: grid;
-  gap: 0.4rem;
-}
-.metric {
-  display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
-  gap: 0.45rem;
-  padding: 0.42rem 0.52rem;
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 8px;
-  background: rgba(255,255,255,0.025);
-}
+.card { padding: 12px; }
+.control-column, .info-column { min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
+.toolPanel { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+.panelTitle { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-weight: 700; font-size: 13px; color: #f2fbff; }
+.toolGrid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.toolGrid button { text-align: left; display: flex; align-items: center; gap: 7px; padding: 7px 8px; background: rgba(255,255,255,0.04); }
+.toolIcon { width: 1.35em; display: inline-block; text-align: center; flex: 0 0 auto; }
+.controlGroup { border-top: 1px solid var(--line); padding-top: 10px; display: grid; gap: 8px; }
+.rangeRow { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+.feedbackCard { background: rgba(255,255,255,0.05); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+.feedbackCard p, .card p { margin: 6px 0; font-size: 13px; color: var(--muted); line-height: 1.35; }
+.planet-column { display: grid; grid-template-rows: minmax(0, 1fr) auto auto; gap: 10px; min-width: 0; min-height: 0; overflow: hidden; }
+.planetStage { position: relative; overflow: hidden; display: grid; grid-template-rows: minmax(0, 1fr) auto; padding: 0; background: radial-gradient(circle at center, rgba(28,62,82,0.58), rgba(4,10,16,0.88)); }
+#planet-canvas { width: 100%; height: 100%; min-height: 420px; display: block; cursor: crosshair; touch-action: none; grid-row: 1; background: transparent; }
+.canvasHint { position: absolute; left: 16px; top: 14px; padding: 8px 10px; border-radius: 12px; background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.12); font-size: 12px; color: var(--muted); pointer-events: none; }
+.modeBadge { position: absolute; right: 16px; top: 14px; padding: 8px 10px; border-radius: 12px; background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.12); font-size: 12px; pointer-events: none; }
+.vitals { display: grid; grid-template-columns: repeat(9, 1fr); gap: 1px; border-top: 1px solid var(--line); background: rgba(255,255,255,0.04); }
+.vital { padding: 9px 10px; background: rgba(4, 12, 18, 0.58); }
+.vital label { display: block; color: var(--muted); font-size: 10.5px; margin: 0 0 3px; }
+.vital span { font-size: 13.5px; font-weight: 700; }
+.status-line { color: var(--muted); padding: 8px 10px; border: 1px solid var(--line); background: rgba(4,12,18,0.66); border-radius: 12px; }
+.quick-start { color: #c7dbe2; }
+.compact-card { max-height: 165px; overflow: auto; }
+.metric-grid, #selected-panel, #stats-panel, #diagnostics-panel { display: grid; gap: 6px; }
+.metric { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 7px; padding: 7px 8px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.05); font-size: 12px; }
 .metric.wide { grid-template-columns: 1fr; }
 .metric span, .trend-row span { color: var(--muted); }
-.metric strong { font-weight: 650; }
-.trend-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.35rem 0;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
-}
-.bottom-panels {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
-  gap: 0.8rem;
-  padding: 0 0.8rem 0.8rem;
-}
-.ledger-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(150px, 1fr));
-  gap: 0.65rem;
-}
-.ledger-grid section {
-  padding: 0.7rem;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: rgba(255,255,255,0.025);
-}
-.ledger-grid p { color: var(--muted); margin-bottom: 0; }
-.event-log, .probe-output {
-  max-height: 220px;
-  overflow: auto;
-  display: grid;
-  gap: 0.4rem;
-}
-.log-entry, .probe {
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 8px;
-  padding: 0.48rem;
-  color: var(--muted);
-  background: rgba(255,255,255,0.025);
-}
+.metric strong { font-weight: 700; color: var(--text); }
+.feedbackPanel { padding: 12px; display: flex; flex-direction: column; gap: 12px; overflow: auto; }
+.goalText { color: var(--text); font-size: 13px; line-height: 1.36; }
+.milestoneList { display: grid; gap: 6px; margin-top: 8px; }
+.actionLog, .event-log, .probe-output { min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; }
+.log-entry, .probe { font-size: 12px; color: var(--muted); padding: 8px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.05); }
 .probe.pass strong { color: var(--good); }
 .probe.warn strong { color: var(--warn); }
 .probe.fail strong { color: var(--bad); }
-.compact-card { max-height: 170px; overflow: auto; }
+.trend-row { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.07); }
+.bottom-panels { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 10px; padding: 0 10px 10px; }
+.ledger-grid { display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 8px; }
+.ledger-grid section { padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,0.025); }
+.ledger-grid p { color: var(--muted); margin-bottom: 0; }
 .panel-hidden { display: none !important; }
-.small-note { color: var(--muted); font-size: 0.9rem; margin-bottom: 0.55rem; }
-
+.small-note { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+.footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-top: 1px solid var(--line); background: rgba(3, 8, 13, 0.82); color: var(--muted); font-size: 12px; }
 @media (max-width: 1180px) {
-  .topbar { grid-template-columns: 1fr; }
-  .topbar-actions { justify-content: flex-start; }
-  .app-shell {
-    grid-template-columns: 1fr;
-    height: auto;
-    min-height: 0;
-    overflow: visible;
-  }
-  .control-column, .info-column {
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    overflow: visible;
-  }
-  .planet-column { grid-template-rows: minmax(420px, 72vh) auto auto; overflow: visible; }
+  html, body { overflow: auto; }
+  .app { min-height: 100%; height: auto; }
+  .topbar { flex-wrap: wrap; }
+  .brand { min-width: 100%; max-width: none; }
+  .main { grid-template-columns: 1fr; grid-template-rows: auto minmax(520px, 70vh) auto; overflow: visible; }
+  .control-column, .info-column { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); overflow: visible; }
+  .planet-column { overflow: visible; }
+  .vitals { grid-template-columns: repeat(3, 1fr); }
   .bottom-panels { grid-template-columns: 1fr; }
   .ledger-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 }
-
-</style>
+@media (max-width: 760px) {
+  .layerControls { min-width: 100%; }
+  .vitals { grid-template-columns: repeat(2, 1fr); }
+  .footer { flex-wrap: wrap; }
+}
+  </style>
 </head>
 <body>
+<div class="app">
   <header class="topbar">
-    <div>
-      <h1 id="build-label">WSG Engine v2 Build 0.1.5 - Explorer Layout Polish</h1>
-      <p id="summary-line">Explorer Mode | compact static Worker build | deploy these three files together.</p>
+    <div class="brand">
+      <strong id="build-label">WSG Engine v2 Build 0.1.6 - Classic Visual Parity</strong>
+      <span id="summary-line">Engine v2 Worker branch with Classic single-HTML visual treatment.</span>
     </div>
-    <div class="topbar-actions">
-      <button id="toggle-trends" class="toggle-button" type="button">Show Trends</button>
-      <button id="toggle-diagnostics" class="toggle-button" type="button">Show Dev/Test</button>
-      <button id="toggle-ledger" class="toggle-button" type="button">Show Migration Ledger</button>
-      <button id="toggle-event-log" class="toggle-button" type="button">Show Event Log</button>
-      <div class="status-pill">Worker: <span id="worker-status">initialising</span></div>
+    <label class="small headerTemplateControl" title="World template">
+      <span>Template</span>
+      <select id="world-template"></select>
+    </label>
+    <button id="generate-button" class="primary" type="button">Generate Planet</button>
+    <button id="reset-button" type="button">Reset Planet</button>
+    <button id="run-pause-button" type="button">Run</button>
+    <button id="step-button" type="button">Step</button>
+    <label class="small" title="Years to advance"><span>Years</span><input id="advance-years-input" class="yearBox" type="number" min="1" max="250" value="1"></label>
+    <button id="advance-years-button" title="Advance configured years" type="button">Advance Years</button>
+    <select id="speed-select" title="Speed"><option value="1">1x</option><option value="2">2x</option><option value="5">5x</option></select>
+    <div class="layerControls">
+      <select id="visual-mode" title="Visual mode"></select>
+      <select id="layer-select" title="Layer"></select>
+      <label class="small opacityControl" title="Overlay opacity">Overlay <input id="overlay-opacity" type="range" min="0" max="1" step="0.05" value="0.65"><span class="kpi">65%</span></label>
+      <label class="small opacityControl" title="Cloud overlay"><input id="cloud-toggle" type="checkbox" checked> Clouds</label>
     </div>
+    <label class="small" title="Seed"><span>Seed</span><input id="seed-input" class="seedBox" type="text" value="ENGINE-V2-001"></label>
+    <button id="rotate-left" type="button">Rotate Left</button>
+    <button id="rotate-right" type="button">Rotate Right</button>
+    <button id="reset-view" type="button">Reset View</button>
+    <button id="toggle-trends" class="toggle-button" type="button">Show Trends</button>
+    <button id="toggle-diagnostics" class="toggle-button" type="button">Show Dev/Test</button>
+    <button id="toggle-ledger" class="toggle-button" type="button">Show Migration Ledger</button>
+    <button id="toggle-event-log" class="toggle-button" type="button">Show Event Log</button>
+    <div class="status-pill">Worker: <span id="worker-status">initialising</span></div>
   </header>
 
-  <main class="app-shell">
-    <aside class="control-column" aria-label="Explorer controls">
-      <section class="card">
-        <h2>World template</h2>
-        <label>Template<select id="world-template"></select></label>
-        <label>Archetype<select id="world-archetype"></select></label>
-        <label>Seed<input id="seed-input" type="text" value="ENGINE-V2-001"></label>
-        <div class="button-row">
-          <button id="generate-button">Generate</button>
-          <button id="reset-button">Reset</button>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2>Simulation</h2>
-        <div class="button-row">
-          <button id="run-pause-button">Run</button>
-          <button id="step-button">Step</button>
-        </div>
-        <label>Speed<select id="speed-select">
-          <option value="1">1x</option>
-          <option value="2">2x</option>
-          <option value="5">5x</option>
-        </select></label>
-        <label>Advance years<input id="advance-years-input" type="number" min="1" max="250" value="10"></label>
-        <button id="advance-years-button">Advance Years</button>
-      </section>
-
-      <section class="card">
-        <h2>Tools</h2>
-        <label>Tool<select id="tool-select"></select></label>
-        <label>Strength<input id="tool-strength" type="range" min="0.2" max="2" step="0.1" value="1"></label>
-        <label>Radius<input id="tool-radius" type="range" min="0" max="5" step="1" value="2"></label>
-        <button id="apply-tool-button">Apply Tool to Selected</button>
-      </section>
-
-      <section class="card">
-        <h2>View</h2>
-        <label>Visual mode<select id="visual-mode"></select></label>
-        <label>Layer<select id="layer-select"></select></label>
-        <label>Overlay opacity<input id="overlay-opacity" type="range" min="0" max="1" step="0.05" value="0.65"></label>
-        <label class="inline"><input id="cloud-toggle" type="checkbox" checked> Clouds in Natural Planet</label>
-        <div class="button-row">
-          <button id="rotate-left">Rotate Left</button>
-          <button id="rotate-right">Rotate Right</button>
-          <button id="reset-view">Reset View</button>
-        </div>
-      </section>
+  <main class="main app-shell">
+    <aside class="panel toolPanel control-column" aria-label="Terraforming tools">
+      <div class="panelTitle"><span>Terraforming Tools</span><span id="selected-tool-mini" class="small">Inspect World</span></div>
+      <label class="small">Tool<select id="tool-select"></select></label>
+      <div id="tool-button-grid" class="toolGrid" aria-label="Tool shortcuts"></div>
+      <div class="controlGroup">
+        <div class="rangeRow"><label class="small" for="tool-radius">Radius</label><span id="tool-radius-value" class="kpi">2</span></div>
+        <input id="tool-radius" type="range" min="0" max="5" step="1" value="2">
+        <div class="rangeRow"><label class="small" for="tool-strength">Strength</label><span id="tool-strength-value" class="kpi">1.0</span></div>
+        <input id="tool-strength" type="range" min="0.2" max="2" step="0.1" value="1">
+      </div>
+      <button id="apply-tool-button" class="primary" type="button">Apply Tool to Selected</button>
+      <div class="feedbackCard">
+        <h3>Quick Start</h3>
+        <p>Generate planet. Select a tool. Click the globe. Step or Run time. Inspect consequences.</p>
+        <p class="small">The Worker owns state, tool application, probes, summaries, and render data. This page is presentation only.</p>
+      </div>
     </aside>
 
     <section class="planet-column" aria-label="Planet explorer">
-      <div class="canvas-card">
+      <div class="canvas-card planetStage">
         <canvas id="planet-canvas" width="980" height="720" aria-label="Planet canvas"></canvas>
+        <div class="canvasHint">Drag to rotate. Click to inspect or apply selected tool.</div>
+        <div id="mode-badge" class="modeBadge">Natural Planet</div>
+        <div class="vitals">
+          <div class="vital"><label>Year</label><span id="vital-year">0</span></div>
+          <div class="vital"><label>Tick</label><span id="vital-tick">0</span></div>
+          <div class="vital"><label>Water</label><span id="vital-water">0%</span></div>
+          <div class="vital"><label>Ice</label><span id="vital-ice">0%</span></div>
+          <div class="vital"><label>Avg temp</label><span id="vital-temp">0 °C</span></div>
+          <div class="vital"><label>Habitable</label><span id="vital-habit">0%</span></div>
+          <div class="vital"><label>Primitive life</label><span id="vital-life">0.000</span></div>
+          <div class="vital"><label>Settlements</label><span id="vital-settlement">0%</span></div>
+          <div class="vital"><label>Collapse risk</label><span id="vital-collapse">0.000</span></div>
+        </div>
       </div>
-      <div id="status-line" class="status-line quick-start">Quick Start: Generate planet → select tool → click planet → Step or Run time → inspect consequences.</div>
+      <div id="status-line" class="status-line quick-start">Quick Start: Generate planet, select tool, click planet, Step or Run time, inspect consequences.</div>
       <section class="card compact-card">
-        <h2>Selected cell</h2>
+        <h2>Selected Cell</h2>
         <div id="selected-panel"><p>No cell selected.</p></div>
       </section>
     </section>
 
-    <aside class="info-column" aria-label="Explorer metrics">
-      <section class="card">
-        <h2>Core planet stats</h2>
+    <aside class="panel feedbackPanel info-column" aria-label="World panels">
+      <div class="panelTitle"><span>World Panels</span><span class="small">compact mode</span></div>
+      <section class="feedbackCard">
+        <h3>Planet Goal</h3>
+        <p class="goalText">Shape a primitive world into a stable living planet. Keep water, ice, heat, habitability, primitive life, ecosystems, and early settlements inside viable bounds.</p>
+      </section>
+      <section class="feedbackCard">
+        <h3>Core Planet Stats</h3>
         <div id="stats-panel" class="metric-grid"><p>Waiting for state summary.</p></div>
       </section>
-      <section class="card panel-hidden" id="trends-card">
-        <h2>Trends</h2>
-        <p class="small-note">Compact trend summary. Hidden by default to keep Explorer Mode planet-first.</p>
+      <section class="feedbackCard panel-hidden" id="trends-card">
+        <h3>Planet Trends</h3>
+        <p class="small-note">Compact trend summary. Hidden by default to preserve the planet-first view.</p>
         <div id="trends-panel"><p>Trend samples will appear after generation and ticks.</p></div>
       </section>
-      <section class="card panel-hidden" id="diagnostics-card">
-        <h2>Developer / Diagnostics</h2>
+      <section class="feedbackCard panel-hidden" id="diagnostics-card">
+        <h3>Developer / Diagnostics</h3>
         <div id="diagnostics-panel" class="metric-grid"><p>Waiting for diagnostics.</p></div>
         <hr>
-        <label>Probe<select id="probe-select"></select></label>
+        <label class="small">Probe<select id="probe-select"></select></label>
         <div class="button-row">
-          <button id="run-probe-button">Run Probe</button>
-          <button id="run-all-probes-button">Run All Probes</button>
+          <button id="run-probe-button" type="button">Run Probe</button>
+          <button id="run-all-probes-button" type="button">Run All Probes</button>
         </div>
         <div id="probe-output" class="probe-output"></div>
       </section>
@@ -348,11 +279,17 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 0.9rem 0; }
       <div id="migration-ledger"></div>
     </article>
     <article class="card panel-hidden" id="event-log-card">
-      <h3>Event log</h3>
+      <h3>Show Event Log</h3>
       <div id="event-log" class="event-log"></div>
     </article>
   </section>
 
-  <script defer src="./app.js?v=0.1.5"></script>
+  <footer class="footer">
+    <span>Engine v2 compact static Worker build. Three files only. Canvas 2D main-thread renderer; Worker-owned simulation state; no build tooling or imported asset bundles.</span>
+    <span>Classic visual parity branch</span>
+  </footer>
+</div>
+
+<script defer src="./app.js?v=0.1.6"></script>
 </body>
 </html>

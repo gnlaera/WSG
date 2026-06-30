@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
-  <title>WSG Engine v2 Build 0.1.6 - Classic Visual Parity</title>
+  <title>WSG Engine v2 Build 0.1.7 - Classic Parity Functional Hotfix</title>
   <style>
 :root {
   color-scheme: dark;
@@ -85,6 +85,12 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 0.9rem 0; }
 .topbar select { min-width: 0; }
 .headerTemplateControl { grid-template-columns: auto minmax(180px, 1fr); gap: 6px; flex: 0 1 300px; min-width: 235px; max-width: 330px; color: var(--muted); }
 .headerTemplateControl select { width: 100%; min-width: 178px; max-width: none; }
+.headerArchetypeControl { grid-template-columns: auto minmax(145px, 1fr); gap: 6px; flex: 0 1 235px; min-width: 190px; max-width: 260px; color: var(--muted); }
+.headerArchetypeControl select { width: 100%; min-width: 140px; }
+button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; background: rgba(255,255,255,0.035); border-color: rgba(170,207,228,0.12); transform: none; }
+.toolFallbackLabel { display: grid; gap: 5px; }
+.button-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
 .seedBox { width: 112px; }
 .yearBox { width: 58px; }
 #speed-select { flex: 0 0 76px; width: 76px; }
@@ -171,12 +177,16 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 0.9rem 0; }
 <div class="app">
   <header class="topbar">
     <div class="brand">
-      <strong id="build-label">WSG Engine v2 Build 0.1.6 - Classic Visual Parity</strong>
-      <span id="summary-line">Engine v2 Worker branch with Classic single-HTML visual treatment.</span>
+      <strong id="build-label">WSG Engine v2 Build 0.1.7 - Classic Parity Functional Hotfix</strong>
+      <span id="summary-line">Engine v2 Worker branch with Classic-style visual parity and functional boot hotfix.</span>
     </div>
     <label class="small headerTemplateControl" title="World template">
       <span>Template</span>
       <select id="world-template"></select>
+    </label>
+    <label class="small headerArchetypeControl" title="World archetype">
+      <span>Archetype</span>
+      <select id="world-archetype"></select>
     </label>
     <button id="generate-button" class="primary" type="button">Generate Planet</button>
     <button id="reset-button" type="button">Reset Planet</button>
@@ -205,7 +215,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 0.9rem 0; }
   <main class="main app-shell">
     <aside class="panel toolPanel control-column" aria-label="Terraforming tools">
       <div class="panelTitle"><span>Terraforming Tools</span><span id="selected-tool-mini" class="small">Inspect World</span></div>
-      <label class="small">Tool<select id="tool-select"></select></label>
+      <label class="small toolFallbackLabel">Fallback selector<select id="tool-select"></select></label>
       <div id="tool-button-grid" class="toolGrid" aria-label="Tool shortcuts"></div>
       <div class="controlGroup">
         <div class="rangeRow"><label class="small" for="tool-radius">Radius</label><span id="tool-radius-value" class="kpi">2</span></div>
@@ -286,10 +296,10 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 0.9rem 0; }
 
   <footer class="footer">
     <span>Engine v2 compact static Worker build. Three files only. Canvas 2D main-thread renderer; Worker-owned simulation state; no build tooling or imported asset bundles.</span>
-    <span>Classic visual parity branch</span>
+    <span>Classic parity functional hotfix</span>
   </footer>
 </div>
 
-<script defer src="./app.js?v=0.1.6"></script>
+<script defer src="./app.js?v=0.1.7"></script>
 </body>
 </html>

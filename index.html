@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
-  <title>WSG Engine v2 Build 0.2.0 - Scientific Visual Resolution Upgrade</title>
+  <title>WSG Engine v2 Build 0.2.0.1 - Canvas Renderer Boot Hotfix</title>
   <style>
 :root {
   color-scheme: dark;
@@ -180,7 +180,7 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
 <div class="app">
   <header class="topbar">
     <div class="brand">
-      <strong id="build-label">WSG Engine v2 Build 0.2.0 - Scientific Visual Resolution Upgrade</strong>
+      <strong id="build-label">WSG Engine v2 Build 0.2.0.1 - Canvas Renderer Boot Hotfix</strong>
       <span id="summary-line">Engine v2 Worker branch with Standard 2,880-face mesh, improved natural rendering, and science-grade layer legends.</span>
     </div>
     <label class="small headerTemplateControl" title="World template">
@@ -326,7 +326,7 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
    Compacted for Engine v2 0.2.0.
    ============================================================ */
 
-const BUILD_LABEL = 'WSG Engine v2 Build 0.2.0 - Scientific Visual Resolution Upgrade';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.2.0.1 - Canvas Renderer Boot Hotfix';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',
@@ -868,7 +868,7 @@ function renderProbeLine(item) {
 function migrationLedgerHtml() {
   return `
     <h3>Migration ledger</h3>
-    <p><strong>Status:</strong> Engine v2 0.2.0 preserves two-file Worker architecture while upgrading mesh resolution, natural rendering, and layer legibility.</p>
+    <p><strong>Status:</strong> Engine v2 0.2.0.1 preserves the scientific visual upgrade and patches the main-thread Canvas renderer boot path.</p>
     <div class="ledger-grid">
       <section><h4>Ported from Classic</h4><p>Generate, Reset, Step, Run/Pause, Advance Years, seed, template and archetype controls, all 12 Classic v1 intervention tools, major layers, selected-cell inspection, trends, probes, and diagnostics.</p></section>
       <section><h4>Simplified</h4><p>Planet generation, climate, hydrology, primitive life, ecosystem state, stewardship, and early settlements are compact deterministic approximations.</p></section>
@@ -1425,7 +1425,7 @@ function diagnosticSnapshot(summary, diagnostics, mainMetrics) {
 
 const ui = getUi();
 initialiseUi(ui);
-const renderer = createCanvasRenderer(ui.canvas);
+const renderer = createRenderer(ui.canvas);
 let worker = null;
 let workerMode = 'external';
 let workerReady = false;
@@ -1460,9 +1460,9 @@ function startWorker() {
     initialGenerateSent = false;
     clearWorkerStartupTimer();
 
-    worker = new Worker('./simulation-worker.js?v=0.2.0');
+    worker = new Worker('./simulation-worker.js?v=0.2.0.1');
     setStatus(ui, 'Worker: external simulation-worker.js starting.');
-    addEvent(ui, 'External Worker attempted: simulation-worker.js?v=0.2.0.');
+    addEvent(ui, 'External Worker attempted: simulation-worker.js?v=0.2.0.1.');
 
     worker.addEventListener('message', onWorkerMessage);
     worker.addEventListener('error', (event) => {

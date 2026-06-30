@@ -10,7 +10,7 @@
    Compacted for Engine v2 0.2.0.
    ============================================================ */
 
-const BUILD_LABEL = 'WSG Engine v2 Build 0.2.0 - Scientific Visual Resolution Upgrade';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.2.0.1 - Canvas Renderer Boot Hotfix';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',

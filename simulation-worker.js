@@ -7,10 +7,10 @@
 /* ============================================================
    Protocol constants
    Source section: message-protocol.js
-   Compacted for Engine v2 0.1.7.
+   Compacted for Engine v2 0.1.8.
    ============================================================ */
 
-const BUILD_LABEL = 'WSG Engine v2 Build 0.1.7 - Classic Parity Functional Hotfix';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.1.8 - V1 Intervention Parity';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',
@@ -78,18 +78,48 @@ const LAYERS = Object.freeze([
   { id: 'civilisationSuitability', label: 'Civilisation Suitability' },
   { id: 'settlements', label: 'Settlements' },
   { id: 'waterFlow', label: 'Water Flow' },
-  { id: 'cloudCover', label: 'Cloud Cover' }
+  { id: 'cloudCover', label: 'Cloud Cover' },
+  { id: 'lifeViability', label: 'Life Viability' },
+  { id: 'dormantLife', label: 'Dormant Life' },
+  { id: 'primitiveBiomass', label: 'Primitive Biomass' },
+  { id: 'biosphereHealth', label: 'Biosphere Health' },
+  { id: 'extinctionRisk', label: 'Extinction Risk' },
+  { id: 'survivalPressure', label: 'Survival Pressure' },
+  { id: 'nutrientLevel', label: 'Nutrients / Mineral Fertility' },
+  { id: 'heatStress', label: 'Heat Stress' },
+  { id: 'greenhousePressure', label: 'Greenhouse / CO2 Pressure' },
+  { id: 'solarInput', label: 'Solar Input' },
+  { id: 'albedo', label: 'Albedo' },
+  { id: 'humidity', label: 'Humidity' },
+  { id: 'rainfall', label: 'Rainfall' },
+  { id: 'runoff', label: 'Runoff' },
+  { id: 'waterStress', label: 'Water Stress' },
+  { id: 'restorationPriority', label: 'Restoration Priority' },
+  { id: 'ecosystemStress', label: 'Ecosystem Stress' },
+  { id: 'recoveryPotential', label: 'Recovery Potential' },
+  { id: 'disturbancePressure', label: 'Disturbance Pressure' },
+  { id: 'habitatContinuity', label: 'Habitat Continuity' },
+  { id: 'foodSupport', label: 'Food Support' },
+  { id: 'waterAccess', label: 'Water Access' },
+  { id: 'civilisationStress', label: 'Civilisation Stress' },
+  { id: 'collapseRisk', label: 'Collapse Risk' },
+  { id: 'recoveryCapacity', label: 'Recovery Capacity' },
+  { id: 'populationIndex', label: 'Population Index' }
 ]);
 
 const TOOLS = Object.freeze([
-  { id: 'inspect_world', label: 'Inspect World' },
-  { id: 'comet_delivery', label: 'Comet Delivery' },
-  { id: 'volcanic_outgassing', label: 'Volcanic Outgassing' },
-  { id: 'orbital_shade', label: 'Orbital Shade' },
-  { id: 'mineral_seeding', label: 'Mineral Seeding' },
-  { id: 'seed_primitive_life', label: 'Seed Primitive Life' },
-  { id: 'planetary_stabilisation', label: 'Planetary Stabilisation' },
-  { id: 'seed_early_settlers', label: 'Seed Early Settlers' }
+  { id: 'inspect', label: 'Inspect World', family: 'Inspect', text: 'Read the selected cell, local physical conditions, habitability, primitive life status, limiting factors, and suggested next action without mutating the world.', preview: 'Valid everywhere. Immediate effect: none. Delayed consequence: none. Layers: all.', best: 'Use first on any unfamiliar cell.' },
+  { id: 'addWater', label: 'Comet Delivery', family: 'Volatiles', text: 'Deliver water and volatile material. Slightly cools the region and can lift later humidity, rainfall, water access, and habitability.', preview: 'Valid where the target is not water-saturated. Watch water, humidity, rainfall, water stress, and habitability.', best: 'Best for dry basins, barren worlds, and overheated lowlands.' },
+  { id: 'iceAsteroid', label: 'Ice Asteroid Strike', family: 'Volatiles', text: 'Deliver frozen volatiles. Stronger cooling and ice effect than Comet Delivery, with a small disturbance penalty.', preview: 'Valid where ice is not saturated and the target is not already too frozen. Watch ice, albedo, temperature, and extinction risk.', best: 'Best for hot, dry, and greenhouse regions.' },
+  { id: 'warm', label: 'Volcanic Outgassing', family: 'Atmosphere', text: 'Release greenhouse gases and minerals. Warms the target, can melt ice, and may improve nutrient availability.', preview: 'Valid where greenhouse, heat, or ice state can still change. Watch greenhouse pressure, temperature, heat stress, ice, and nutrients.', best: 'Best for icy worlds and cold marginal zones.' },
+  { id: 'cool', label: 'Orbital Shade', family: 'Climate', text: 'Reduce local solar heating without adding water. Can reduce heat stress and preserve or expand ice where water exists.', preview: 'Valid where the target is not already near the cold lower bound. Watch temperature, heat stress, ice, and habitability.', best: 'Best for greenhouse worlds and overheated regions.' },
+  { id: 'raiseLand', label: 'Tectonic Uplift', family: 'Terrain', text: 'Raise terrain, expose shallow water into land, cool high terrain slightly, and increase runoff potential.', preview: 'Valid where elevation is below its upper bound. Watch elevation, water, runoff, temperature, and water access.', best: 'Best for ocean worlds and flooded lowlands.' },
+  { id: 'lowerLand', label: 'Tectonic Subsidence', family: 'Terrain', text: 'Lower terrain to form basins, improve water capture, and increase local water share or flood risk.', preview: 'Valid where elevation is above its lower bound. Watch elevation, water capture, runoff, water stress, and flood-prone water share.', best: 'Best for dry worlds and barren high basins.' },
+  { id: 'greenhouseVenting', label: 'Greenhouse Venting', family: 'Atmosphere', text: 'Reduce greenhouse pressure and heat stress. Can cool a region over time and may increase ice risk if overused.', preview: 'Valid where greenhouse pressure or heat stress is not already low. Watch greenhouse pressure, temperature, heat stress, and ice.', best: 'Best for greenhouse worlds and overheated wetlands.' },
+  { id: 'mineralSeeding', label: 'Mineral Seeding', family: 'Fertility', text: 'Add primitive minerals and nutrients. Improves fertility and recovery potential but does not create life by itself.', preview: 'Valid where nutrients are not saturated and water and temperature are not hostile. Watch nutrients, life viability, and habitability.', best: 'Best for barren but physically tolerable zones.' },
+  { id: 'seedMicrobes', label: 'Seed Primitive Life', family: 'Life', text: 'Seed microbial life only where water, temperature, ice, nutrients, stress, and habitability are adequate.', preview: 'Fails clearly in hostile cells. Watch primitive life, dormant life, biomass, biosphere health, and extinction risk.', best: 'Best after water, temperature, stress, and nutrients have been improved.' },
+  { id: 'stabilise', label: 'Planetary Stabilisation', family: 'Stability', text: 'Gently reduce local extremes in temperature, heat stress, water stress, disturbance, and instability. This is a weak nudge, not a magic fix.', preview: 'Valid where meaningful stress or extremes exist. Watch stress, recovery capacity, resilience, and habitability.', best: 'Best for marginal cells after direct terraforming.' },
+  { id: 'seedSettlers', label: 'Seed Early Settlers', family: 'Civilisation', text: 'Seed a small early settlement only where resilient ecosystems, food support, water access, climate, and stability can support it.', preview: 'Fails on lifeless or unsuitable worlds. Watch civilisation suitability, food support, water access, stress, settlements, and collapse risk.', best: 'Use after a resilient living planet has emerged, not as a shortcut to life or modern civilisation.' }
 ]);
 
 const PROBES = Object.freeze([
@@ -101,6 +131,7 @@ const PROBES = Object.freeze([
   { id: 'earthlike_template', label: 'Earthlike template probe' },
   { id: 'ecosystem_growth', label: 'Ecosystem growth probe' },
   { id: 'civilisation_gate', label: 'Civilisation emergence gate probe' },
+  { id: 'intervention_parity', label: 'Intervention parity probe' },
   { id: 'no_dom_in_worker', label: 'No UI access in worker probe' },
   { id: 'render_data_finite', label: 'Render-data finite/bounded probe' }
 ]);
@@ -113,7 +144,7 @@ function makeEnvelope(type, payload = {}) {
 /* ============================================================
    Utility math
    Source section: util/math.js
-   Compacted for Engine v2 0.1.7.
+   Compacted for Engine v2 0.1.8.
    ============================================================ */
 
 function clamp(value, min, max) {
@@ -159,7 +190,7 @@ function finite01(value) {
 /* ============================================================
    Deterministic random
    Source section: util/random.js
-   Compacted for Engine v2 0.1.7.
+   Compacted for Engine v2 0.1.8.
    ============================================================ */
 
 function stringToSeed(input) {
@@ -197,7 +228,7 @@ function hashUnit(seed, a = 0, b = 0) {
 /* ============================================================
    Performance helpers
    Source section: util/perf.js
-   Compacted for Engine v2 0.1.7.
+   Compacted for Engine v2 0.1.8.
    ============================================================ */
 
 function nowMs() {
@@ -224,7 +255,7 @@ function estimateTypedPayloadBytes(payload) {
 /* ============================================================
    State schema
    Source section: state-schema.js
-   Compacted for Engine v2 0.1.7.
+   Compacted for Engine v2 0.1.8.
    ============================================================ */
 
 const STATE_SCHEMA_VERSION = 'engine-v2-state-schema-0.1.0';
@@ -253,6 +284,7 @@ const SIM_ARRAY_FIELDS = Object.freeze([
   'primitiveLife',
   'dormantLife',
   'biomass',
+  'primitiveBiomass',
   'producerMats',
   'biomeClass',
   'biodiversityIndex',
@@ -276,7 +308,16 @@ const SIM_ARRAY_FIELDS = Object.freeze([
   'terrainClass',
   'craterPressure',
   'greenhousePressure',
-  'nutrientLevel'
+  'nutrientLevel',
+  'solarInput',
+  'albedo',
+  'heatStress',
+  'waterStress',
+  'lifeViability',
+  'survivalPressure',
+  'extinctionRisk',
+  'biosphereHealth',
+  'dirtyCells'
 ]);
 
 const RENDER_ARRAY_FIELDS = Object.freeze([
@@ -292,6 +333,7 @@ const RENDER_ARRAY_FIELDS = Object.freeze([
   'primitiveLife',
   'dormantLife',
   'biomass',
+  'primitiveBiomass',
   'producerMats',
   'biomeClass',
   'biodiversityIndex',
@@ -314,7 +356,15 @@ const RENDER_ARRAY_FIELDS = Object.freeze([
   'cloudCover',
   'terrainClass',
   'greenhousePressure',
-  'nutrientLevel'
+  'nutrientLevel',
+  'solarInput',
+  'albedo',
+  'heatStress',
+  'waterStress',
+  'lifeViability',
+  'survivalPressure',
+  'extinctionRisk',
+  'biosphereHealth'
 ]);
 
 function createSimulationState(mesh, options = {}) {
@@ -331,6 +381,8 @@ function createSimulationState(mesh, options = {}) {
     speed: DEFAULT_CONFIG.defaultSpeed,
     selectedCell: -1,
     lastAction: 'No action yet.',
+    lastChange: 'What changed: nothing yet.',
+    lastWatch: 'Watch selected layers after generation, tools, and time steps.',
     lastLimitingFactor: 'none',
     generationSignature: '',
     renderDirty: true,
@@ -352,7 +404,7 @@ function createSimulationState(mesh, options = {}) {
   };
 
   for (const field of SIM_ARRAY_FIELDS) {
-    if (field === 'biomeClass' || field === 'terrainClass') {
+    if (field === 'biomeClass' || field === 'terrainClass' || field === 'dirtyCells') {
       state[field] = new Uint8Array(count);
     } else {
       state[field] = new Float32Array(count);
@@ -375,6 +427,8 @@ function cloneState(state) {
     speed: state.speed,
     selectedCell: state.selectedCell,
     lastAction: state.lastAction,
+    lastChange: state.lastChange,
+    lastWatch: state.lastWatch,
     lastLimitingFactor: state.lastLimitingFactor,
     generationSignature: state.generationSignature,
     renderDirty: state.renderDirty,
@@ -401,6 +455,8 @@ function restoreState(target, snapshot) {
   target.speed = snapshot.speed;
   target.selectedCell = snapshot.selectedCell;
   target.lastAction = snapshot.lastAction;
+  target.lastChange = snapshot.lastChange;
+  target.lastWatch = snapshot.lastWatch;
   target.lastLimitingFactor = snapshot.lastLimitingFactor;
   target.generationSignature = snapshot.generationSignature;
   target.renderDirty = snapshot.renderDirty;
@@ -428,7 +484,7 @@ function validateArrayShape(state) {
 /* ============================================================
    Mesh
    Source section: sim/mesh.js
-   Compacted for Engine v2 0.1.7.
+   Compacted for Engine v2 0.1.8.
    ============================================================ */
 
 
@@ -633,10 +689,40 @@ function meshSignature(mesh) {
 }
 
 
+
+function updateCellDerivedDiagnostics(state, mesh, i) {
+  const latAbs = Math.abs(mesh.latitude[i]) / 90;
+  const solar = clamp01(0.86 - 0.56 * latAbs);
+  const albedo = clamp01(0.10 + state.ice[i] * 0.58 + state.cloudCover[i] * 0.12 + (state.water[i] > 0.55 ? 0.06 : 0));
+  const heatStress = clamp01((state.temperature[i] - 0.68) * 2.4 + state.greenhousePressure[i] * 0.20 - state.cloudCover[i] * 0.08);
+  const waterStress = clamp01((0.34 - state.waterAccess[i]) * 1.7 + (0.24 - state.rainfall[i]) * 0.65 + heatStress * 0.30);
+  const tempFit = clamp01(1 - Math.abs(state.temperature[i] - 0.55) / 0.42);
+  const waterFit = clamp01(state.waterAccess[i] * 0.55 + state.rainfall[i] * 0.25 + state.water[i] * 0.15);
+  const stressPenalty = clamp01(heatStress * 0.35 + waterStress * 0.35 + state.disturbancePressure[i] * 0.20 + state.ice[i] * 0.24);
+  const viability = clamp01(tempFit * 0.36 + waterFit * 0.28 + state.nutrientLevel[i] * 0.20 + state.habitability[i] * 0.16 - stressPenalty * 0.34);
+  const survival = clamp01((1 - viability) * 0.46 + heatStress * 0.24 + waterStress * 0.22 + state.ice[i] * 0.18 + state.disturbancePressure[i] * 0.16 + (1 - state.nutrientLevel[i]) * 0.10);
+  const living = clamp01(state.primitiveLife[i] * 0.62 + state.dormantLife[i] * 0.12 + state.producerMats[i] * 0.18 + state.biodiversityIndex[i] * 0.08);
+  state.solarInput[i] = solar;
+  state.albedo[i] = albedo;
+  state.heatStress[i] = heatStress;
+  state.waterStress[i] = waterStress;
+  state.lifeViability[i] = viability;
+  state.survivalPressure[i] = survival;
+  state.extinctionRisk[i] = clamp01(survival * (0.55 + living * 0.45));
+  state.primitiveBiomass[i] = clamp01(state.biomass[i]);
+  state.biosphereHealth[i] = clamp01(living * 0.36 + state.ecosystemResilience[i] * 0.28 + viability * 0.22 + (1 - survival) * 0.14);
+}
+
+function recomputeDerivedDiagnostics(state, mesh) {
+  for (let i = 0; i < state.cellCount; i += 1) {
+    updateCellDerivedDiagnostics(state, mesh, i);
+  }
+}
+
 /* ============================================================
    Summaries and signatures
    Source section: sim/summaries.js
-   Compacted for Engine v2 0.1.7.
+   Compacted for Engine v2 0.1.8.
    ============================================================ */
 
 
@@ -692,6 +778,8 @@ function computeSummary(state, mesh) {
     speed: state.speed,
     selectedCell: state.selectedCell,
     lastAction: state.lastAction,
+    lastChange: state.lastChange,
+    lastWatch: state.lastWatch,
     lastLimitingFactor: state.lastLimitingFactor,
     generationSignature: state.generationSignature,
     averageTemperature: temp,
@@ -701,6 +789,17 @@ function computeSummary(state, mesh) {
     habitableShare: habShare,
     primitiveLifeCoverage: weightedShare(state.primitiveLife, weights, 0.05),
     primitiveLifeMean: life,
+    lifeViabilityMean: weightedMean(state.lifeViability, weights),
+    lifeViabilityShare: weightedShare(state.lifeViability, weights, 0.42),
+    dormantLifeMean: weightedMean(state.dormantLife, weights),
+    primitiveBiomassMean: weightedMean(state.primitiveBiomass, weights),
+    biosphereHealthMean: weightedMean(state.biosphereHealth, weights),
+    extinctionRiskMean: weightedMean(state.extinctionRisk, weights),
+    survivalPressureMean: weightedMean(state.survivalPressure, weights),
+    nutrientMean: weightedMean(state.nutrientLevel, weights),
+    heatStressMean: weightedMean(state.heatStress, weights),
+    waterStressMean: weightedMean(state.waterStress, weights),
+    greenhousePressureMean: weightedMean(state.greenhousePressure, weights),
     producerMatsMean: weightedMean(state.producerMats, weights),
     biodiversityMean: weightedMean(state.biodiversityIndex, weights),
     resilienceMean: weightedMean(state.ecosystemResilience, weights),
@@ -714,6 +813,9 @@ function computeSummary(state, mesh) {
     cloudMean: weightedMean(state.cloudCover, weights),
     runoffMean: weightedMean(state.runoff, weights),
     waterFlowMean: weightedMean(state.waterFlow, weights),
+    humidityMean: weightedMean(state.humidity, weights),
+    rainfallMean: weightedMean(state.rainfall, weights),
+    albedoMean: weightedMean(state.albedo, weights),
     warnings,
     renderDirty: state.renderDirty,
     trendDirty: state.trendDirty,
@@ -763,6 +865,15 @@ function computeSelectedCellSummary(state, mesh, cellId = state.selectedCell) {
     cloudCover: state.cloudCover[id],
     greenhousePressure: state.greenhousePressure[id],
     nutrientLevel: state.nutrientLevel[id],
+    solarInput: state.solarInput[id],
+    albedo: state.albedo[id],
+    heatStress: state.heatStress[id],
+    waterStress: state.waterStress[id],
+    lifeViability: state.lifeViability[id],
+    primitiveBiomass: state.primitiveBiomass[id],
+    biosphereHealth: state.biosphereHealth[id],
+    extinctionRisk: state.extinctionRisk[id],
+    survivalPressure: state.survivalPressure[id],
     lifeStatus: localLifeStatus(state, id),
     limitingFactor: localLimitingFactor(state, id)
   };
@@ -815,7 +926,7 @@ function collectTransferables(payload) {
 
 function signatureState(state) {
   let h = 2166136261 >>> 0;
-  const fields = ['elevation', 'water', 'temperature', 'ice', 'habitability', 'primitiveLife', 'producerMats', 'settlements', 'populationIndex'];
+  const fields = ['elevation', 'water', 'temperature', 'ice', 'habitability', 'lifeViability', 'primitiveLife', 'dormantLife', 'producerMats', 'settlements', 'populationIndex'];
   for (const field of fields) {
     const arr = state[field];
     const stride = Math.max(1, Math.floor(arr.length / 97));
@@ -838,6 +949,11 @@ function trendSampleFromSummary(summary) {
     iceShare: summary.iceShare,
     habitability: summary.habitableShare,
     primitiveLife: summary.primitiveLifeMean,
+    dormantLife: summary.dormantLifeMean,
+    primitiveBiomass: summary.primitiveBiomassMean,
+    biosphereHealth: summary.biosphereHealthMean,
+    extinctionRisk: summary.extinctionRiskMean,
+    lifeViability: summary.lifeViabilityMean,
     biodiversity: summary.biodiversityMean,
     settlement: summary.settlementMean,
     collapseRisk: summary.collapseRiskMean
@@ -902,7 +1018,7 @@ function localLimitingFactor(state, i) {
 /* ============================================================
    Generation
    Source section: sim/generation.js
-   Compacted for Engine v2 0.1.7.
+   Compacted for Engine v2 0.1.8.
    ============================================================ */
 
 
@@ -970,6 +1086,8 @@ function generateWorld(state, mesh, options = {}) {
   state.year = 0;
   state.selectedCell = -1;
   state.lastAction = `Generated ${templateId.replaceAll('_', ' ')} with ${archetypeId.replaceAll('_', ' ')} archetype.`;
+  state.lastChange = 'What changed: full planet generation reset all Worker-owned state arrays and render data.';
+  state.lastWatch = 'Watch water, ice, temperature, habitability, life viability, and selected tool guidance.';
   state.lastLimitingFactor = 'new world';
 
   for (let i = 0; i < mesh.count; i += 1) {
@@ -980,6 +1098,7 @@ function generateWorld(state, mesh, options = {}) {
     const lon = mesh.longitude[i];
     const lat = mesh.latitude[i];
     state.craterPressure[i] = 0;
+    state.dirtyCells[i] = 0;
     let elevation = terrainNoise(seed, i, x, y, z, profile.rough);
     if (templateId === 'earthlike') {
       elevation = 0.42 + 0.32 * earthlikeMask(lon, lat) + 0.12 * (hashUnit(seed, i, 91) - 0.5);
@@ -1027,11 +1146,11 @@ function generateWorld(state, mesh, options = {}) {
     state.habitatContinuity[i] = clamp01(state.habitability[i] * 0.40 + (1 - state.ice[i]) * 0.20);
     state.stewardshipPressure[i] = 0;
     state.restorationPriority[i] = clamp01((1 - state.habitability[i]) * 0.35);
+    state.waterAccess[i] = clamp01(state.water[i] * 0.65 + state.rainfall[i] * 0.25 + state.runoff[i] * 0.15);
+    state.foodSupport[i] = clamp01(state.habitability[i] * 0.60 + state.producerMats[i] * 0.20 + state.waterAccess[i] * 0.12);
     state.civilisationSuitability[i] = clamp01(state.habitability[i] * 0.52 + (1 - ocean) * 0.20 + state.waterAccess[i] * 0.15);
     state.settlements[i] = 0;
     state.populationIndex[i] = 0;
-    state.foodSupport[i] = clamp01(state.habitability[i] * 0.60 + state.producerMats[i] * 0.20);
-    state.waterAccess[i] = clamp01(state.water[i] * 0.65 + state.rainfall[i] * 0.25 + state.runoff[i] * 0.15);
     state.socialComplexity[i] = 0;
     state.civilisationStress[i] = clamp01(1 - state.civilisationSuitability[i]);
     state.collapseRisk[i] = state.civilisationStress[i] * 0.20;
@@ -1049,6 +1168,7 @@ function generateWorld(state, mesh, options = {}) {
     seedEarthlikeLife(state, mesh);
   }
 
+  recomputeDerivedDiagnostics(state, mesh);
   state.generationSignature = signatureState(state);
   state.renderDirty = true;
   state.trendDirty = true;
@@ -1066,6 +1186,7 @@ function seedEarthlikeLife(state, mesh) {
     state.ecosystemResilience[i] = clamp01(0.20 + life * 0.45 + state.recoveryPotential[i] * 0.20);
     state.ecosystemStress[i] = clamp01(1 - state.ecosystemResilience[i]);
     state.civilisationSuitability[i] = clamp01(state.habitability[i] * 0.50 + state.producerMats[i] * 0.22 + state.waterAccess[i] * 0.18);
+    updateCellDerivedDiagnostics(state, mesh, i);
     if (state.civilisationSuitability[i] > 0.62 && state.water[i] < 0.55 && Math.abs(mesh.latitude[i]) < 62) {
       state.settlements[i] = clamp01((state.civilisationSuitability[i] - 0.58) * 1.4);
       state.populationIndex[i] = clamp01(state.settlements[i] * 0.75);
@@ -1079,7 +1200,7 @@ function seedEarthlikeLife(state, mesh) {
 /* ============================================================
    Physical systems
    Source section: sim/physical.js
-   Compacted for Engine v2 0.1.7.
+   Compacted for Engine v2 0.1.8.
    ============================================================ */
 
 
@@ -1099,6 +1220,7 @@ function stepPhysical(state, mesh) {
     state.ice[i] = clamp01(state.ice[i] + freezePressure * 0.012 - meltPressure * 0.018);
     state.cloudCover[i] = clamp01(state.cloudCover[i] * 0.96 + state.humidity[i] * 0.03 + state.water[i] * 0.01);
     state.habitability[i] = clamp01(state.habitability[i] * 0.88 + computeHabitability(state, i) * 0.12);
+    updateCellDerivedDiagnostics(state, mesh, i);
   }
 }
 
@@ -1113,7 +1235,7 @@ function computeHabitability(state, i) {
 /* ============================================================
    Water
    Source section: sim/water.js
-   Compacted for Engine v2 0.1.7.
+   Compacted for Engine v2 0.1.8.
    ============================================================ */
 
 
@@ -1159,6 +1281,7 @@ function stepWater(state, mesh) {
   for (let i = 0; i < state.cellCount; i += 1) {
     state.waterFlow[i] = clamp01(state.waterFlow[i] + state.scratchFlow[i] * 0.18);
     state.waterAccess[i] = clamp01(state.water[i] * 0.50 + state.rainfall[i] * 0.25 + state.runoff[i] * 0.20 + state.waterFlow[i] * 0.18);
+    updateCellDerivedDiagnostics(state, mesh, i);
   }
 }
 
@@ -1166,7 +1289,7 @@ function stepWater(state, mesh) {
 /* ============================================================
    Primitive life
    Source section: sim/life.js
-   Compacted for Engine v2 0.1.7.
+   Compacted for Engine v2 0.1.8.
    ============================================================ */
 
 
@@ -1219,6 +1342,8 @@ function stepLife(state, mesh) {
     state.primitiveLife[i] = clamp01(state.primitiveLife[i] + state.scratchLife[i]);
     state.biomass[i] = clamp01(state.primitiveLife[i] * 0.60 + state.dormantLife[i] * 0.18 + state.producerMats[i] * 0.20);
     state.producerMats[i] = clamp01(state.producerMats[i] * 0.97 + state.primitiveLife[i] * state.nutrientLevel[i] * 0.035);
+    state.primitiveBiomass[i] = state.biomass[i];
+    updateCellDerivedDiagnostics(state, mesh, i);
   }
 
   return { spreadCount, dormancyTransitions, recoveryTransitions, localExtinctions };
@@ -1228,7 +1353,7 @@ function stepLife(state, mesh) {
 /* ============================================================
    Ecosystems
    Source section: sim/ecosystems.js
-   Compacted for Engine v2 0.1.7.
+   Compacted for Engine v2 0.1.8.
    ============================================================ */
 
 
@@ -1241,6 +1366,7 @@ function stepEcosystems(state) {
     state.ecosystemStress[i] = clamp01((1 - state.ecosystemResilience[i]) * 0.55 + (1 - state.habitability[i]) * 0.35 + state.disturbancePressure[i] * 0.22);
     state.recoveryPotential[i] = clamp01(state.recoveryPotential[i] * 0.98 + (state.nutrientLevel[i] * 0.40 + state.habitability[i] * 0.35 + state.stewardshipPressure[i] * 0.10) * 0.02);
     state.restorationPriority[i] = clamp01(state.ecosystemStress[i] * 0.50 + (1 - state.biodiversityIndex[i]) * 0.20 + state.disturbancePressure[i] * 0.20);
+    updateCellDerivedDiagnostics(state, mesh, i);
   }
 }
 
@@ -1248,7 +1374,7 @@ function stepEcosystems(state) {
 /* ============================================================
    Stewardship
    Source section: sim/stewardship.js
-   Compacted for Engine v2 0.1.7.
+   Compacted for Engine v2 0.1.8.
    ============================================================ */
 
 
@@ -1259,6 +1385,7 @@ function stepStewardship(state) {
     state.stewardshipPressure[i] = clamp01(pressureDecay);
     state.ecosystemStress[i] = clamp01(state.ecosystemStress[i] - restorationEffect);
     state.recoveryCapacity[i] = clamp01(state.recoveryCapacity[i] * 0.98 + (state.ecosystemResilience[i] + restorationEffect) * 0.02);
+    updateCellDerivedDiagnostics(state, state.mesh || { latitude: new Float32Array(state.cellCount) }, i);
   }
 }
 
@@ -1266,7 +1393,7 @@ function stepStewardship(state) {
 /* ============================================================
    Civilisation diagnostics
    Source section: sim/civilisation.js
-   Compacted for Engine v2 0.1.7.
+   Compacted for Engine v2 0.1.8.
    ============================================================ */
 
 
@@ -1290,124 +1417,288 @@ function stepCivilisation(state) {
 /* ============================================================
    Tools
    Source section: sim/tools.js
-   Compacted for Engine v2 0.1.7.
+   Compacted for Engine v2 0.1.8.
    ============================================================ */
 
 
+function normaliseToolId(toolId) {
+  const map = {
+    inspect_world: 'inspect',
+    comet_delivery: 'addWater',
+    ice_asteroid: 'iceAsteroid',
+    volcanic_outgassing: 'warm',
+    orbital_shade: 'cool',
+    tectonic_uplift: 'raiseLand',
+    tectonic_subsidence: 'lowerLand',
+    greenhouse_venting: 'greenhouseVenting',
+    mineral_seeding: 'mineralSeeding',
+    seed_primitive_life: 'seedMicrobes',
+    planetary_stabilisation: 'stabilise',
+    seed_early_settlers: 'seedSettlers'
+  };
+  return map[toolId] || toolId;
+}
+
+function toolDefinition(toolId) {
+  return TOOLS.find((tool) => tool.id === toolId) || TOOLS[0];
+}
+
+function validateToolTarget(state, toolId, cellId) {
+  const tool = normaliseToolId(toolId);
+  const i = cellId | 0;
+  if (i < 0 || i >= state.cellCount) {
+    return { valid: false, reason: 'Invalid target cell.', suggestion: 'Select a visible cell on the planet first.', watch: 'Selected-cell summary.' };
+  }
+  if (tool === 'inspect') {
+    return { valid: true, reason: 'Inspect World is always valid.', suggestion: suggestedActionForCell(state, i), watch: 'All selected-cell layers.' };
+  }
+  if (tool === 'addWater') {
+    const valid = state.water[i] < 0.94;
+    return { valid, reason: valid ? 'Comet Delivery can add volatiles here.' : 'Comet Delivery failed: this cell is already water-saturated.', suggestion: valid ? 'Advance time and watch humidity, rainfall, water stress, and habitability.' : 'Use another region or reduce heat/stress instead.', watch: 'Water, Humidity, Rainfall, Water Stress, Habitability.' };
+  }
+  if (tool === 'iceAsteroid') {
+    const valid = state.ice[i] < 0.88 && (state.water[i] < 0.96 || state.temperature[i] > 0.44);
+    return { valid, reason: valid ? 'Ice Asteroid Strike can add frozen volatiles here.' : 'Ice Asteroid Strike failed: target is already ice-saturated or unsuitable.', suggestion: valid ? 'Watch ice, albedo, cooling, disturbance, and habitability.' : 'Use Orbital Shade or Greenhouse Venting elsewhere if heat is the issue.', watch: 'Ice, Albedo, Temperature, Disturbance Pressure.' };
+  }
+  if (tool === 'warm') {
+    const valid = state.greenhousePressure[i] < 0.94 || state.temperature[i] < 0.94 || state.ice[i] > 0.04;
+    return { valid, reason: valid ? 'Volcanic Outgassing can still raise greenhouse pressure, heat, or melt ice.' : 'Volcanic Outgassing failed: greenhouse and heat pressure are already near saturation.', suggestion: valid ? 'Use on cold or icy cells, then watch heat stress.' : 'Use cooling, water, or stabilisation instead.', watch: 'Greenhouse / CO2 Pressure, Temperature, Ice, Heat Stress, Nutrients.' };
+  }
+  if (tool === 'cool') {
+    const valid = state.temperature[i] > 0.06 || state.heatStress[i] > 0.05;
+    return { valid, reason: valid ? 'Orbital Shade can reduce local heat pressure.' : 'Orbital Shade failed: target temperature is already near the lower bound.', suggestion: valid ? 'Watch cooling, heat stress, and ice risk.' : 'Use warming or stabilisation if cold stress is the issue.', watch: 'Temperature, Heat Stress, Ice, Habitability.' };
+  }
+  if (tool === 'raiseLand') {
+    const valid = state.elevation[i] < 0.96;
+    return { valid, reason: valid ? 'Tectonic Uplift can raise this terrain.' : 'Tectonic Uplift failed: elevation is already near the upper bound.', suggestion: valid ? 'Use on oceans or lowlands to expose land or increase runoff.' : 'Use subsidence or another cell.', watch: 'Elevation, Water, Runoff, Temperature.' };
+  }
+  if (tool === 'lowerLand') {
+    const valid = state.elevation[i] > 0.04;
+    return { valid, reason: valid ? 'Tectonic Subsidence can lower this terrain into a basin.' : 'Tectonic Subsidence failed: elevation is already near the lower bound.', suggestion: valid ? 'Use on dry terrain to improve water capture, but watch flooding.' : 'Use uplift or another cell.', watch: 'Elevation, Water, Runoff, Water Stress.' };
+  }
+  if (tool === 'greenhouseVenting') {
+    const valid = state.greenhousePressure[i] > 0.06 || state.heatStress[i] > 0.08 || state.temperature[i] > 0.68;
+    return { valid, reason: valid ? 'Greenhouse Venting can reduce local greenhouse or heat pressure.' : 'Greenhouse Venting failed: greenhouse pressure and heat stress are already low.', suggestion: valid ? 'Watch cooling and ice risk if overused.' : 'Use direct water, nutrients, or warming tools instead.', watch: 'Greenhouse / CO2 Pressure, Temperature, Heat Stress, Ice.' };
+  }
+  if (tool === 'mineralSeeding') {
+    const tolerable = state.waterAccess[i] > 0.10 && state.temperature[i] > 0.24 && state.temperature[i] < 0.86 && state.ice[i] < 0.82;
+    const valid = state.nutrientLevel[i] < 0.94 && tolerable;
+    return { valid, reason: valid ? 'Mineral Seeding can add primitive fertility here.' : (tolerable ? 'Mineral Seeding failed: nutrients are already near saturation.' : 'Mineral Seeding failed: water or temperature makes the intervention meaningless.'), suggestion: valid ? 'Watch nutrients, life viability, and recovery potential.' : 'Fix water, temperature, or ice first.', watch: 'Nutrients / Mineral Fertility, Life Viability, Habitability.' };
+  }
+  if (tool === 'seedMicrobes') {
+    const blockers = [];
+    if (state.waterAccess[i] <= 0.25) blockers.push('too dry');
+    if (state.temperature[i] < 0.30) blockers.push('too cold');
+    if (state.temperature[i] > 0.78) blockers.push('too hot');
+    if (state.ice[i] >= 0.68) blockers.push('too icy');
+    if (state.nutrientLevel[i] < 0.24) blockers.push('too nutrient-poor');
+    if (state.waterStress[i] > 0.72 || state.heatStress[i] > 0.62 || state.disturbancePressure[i] > 0.74) blockers.push('too stressed');
+    if (state.habitability[i] < 0.42 || state.lifeViability[i] < 0.40) blockers.push('insufficient habitability');
+    const valid = blockers.length === 0 && state.survivalPressure[i] < 0.72;
+    return { valid, reason: valid ? 'Seed Primitive Life can start active microbes here.' : `Seed Primitive Life blocked: ${blockers.join(', ') || 'survival pressure too high'}.`, suggestion: valid ? 'Advance time and watch growth, dormancy, recovery, and spread.' : `Terraform first: ${limitingFactor(state, i)}.`, watch: 'Primitive Life, Dormant Life, Primitive Biomass, Biosphere Health, Extinction Risk.' };
+  }
+  if (tool === 'stabilise') {
+    const extreme = state.waterStress[i] > 0.22 || state.heatStress[i] > 0.18 || state.disturbancePressure[i] > 0.18 || state.temperature[i] < 0.34 || state.temperature[i] > 0.72 || state.habitability[i] < 0.38;
+    return { valid: extreme, reason: extreme ? 'Planetary Stabilisation has local extremes to soften.' : 'Planetary Stabilisation found no meaningful local extreme to soften.', suggestion: extreme ? 'Use after direct terraforming to reduce stress; it will not solve missing water, heat, or nutrients by itself.' : 'Use a direct terraforming tool where something specific is missing.', watch: 'Heat Stress, Water Stress, Disturbance Pressure, Ecosystem Stress, Recovery Capacity.' };
+  }
+  if (tool === 'seedSettlers') {
+    const blockers = [];
+    if (state.primitiveLife[i] < 0.22 && state.producerMats[i] < 0.06) blockers.push('lifeless or biologically weak');
+    if (state.ecosystemResilience[i] < 0.34) blockers.push('ecosystem resilience too low');
+    if (state.foodSupport[i] < 0.34) blockers.push('food support too weak');
+    if (state.waterAccess[i] < 0.34) blockers.push('water access too weak');
+    if (state.civilisationSuitability[i] < 0.54) blockers.push('civilisation suitability too low');
+    if (state.civilisationStress[i] > 0.62 || state.collapseRisk[i] > 0.54) blockers.push('stability too weak');
+    const valid = blockers.length === 0;
+    return { valid, reason: valid ? 'Early settlers can establish a small settlement here.' : `Seed Early Settlers blocked: ${blockers.join(', ')}.`, suggestion: valid ? 'Advance time and watch food support, water access, stress, collapse risk, and settlements.' : 'Build a resilient living planet first; this tool must not create modern civilisation by shortcut.', watch: 'Settlements, Food Support, Water Access, Civilisation Stress, Collapse Risk.' };
+  }
+  return { valid: false, reason: `Unknown tool: ${toolId}.`, suggestion: 'Select a known terraforming tool.', watch: 'Tool registry.' };
+}
+
+function suggestedActionForCell(state, i) {
+  const factor = limitingFactor(state, i);
+  if (factor === 'too dry' || factor === 'water access') return 'Suggested next action: Comet Delivery or Tectonic Subsidence.';
+  if (factor === 'too hot' || factor === 'heat stress') return 'Suggested next action: Orbital Shade or Greenhouse Venting.';
+  if (factor === 'too cold' || factor === 'cold stress' || factor === 'ice cover') return 'Suggested next action: Volcanic Outgassing or reduce cooling.';
+  if (factor === 'too nutrient-poor' || factor === 'nutrients') return 'Suggested next action: Mineral Seeding.';
+  if (factor === 'ecosystem stress' || factor === 'too stressed') return 'Suggested next action: Planetary Stabilisation.';
+  if (state.primitiveLife[i] <= 0.02 && state.lifeViability[i] > 0.42) return 'Suggested next action: Seed Primitive Life.';
+  if (state.primitiveLife[i] > 0.20 && state.civilisationSuitability[i] > 0.54) return 'Suggested next action: Seed Early Settlers if the goal is early civilisation.';
+  return 'Suggested next action: inspect neighbouring cells or advance time.';
+}
+
+function localMeans(state, cells) {
+  const fields = ['water', 'ice', 'temperature', 'elevation', 'greenhousePressure', 'nutrientLevel', 'habitability', 'lifeViability', 'primitiveLife', 'dormantLife', 'biosphereHealth', 'heatStress', 'waterStress', 'settlements', 'collapseRisk'];
+  const out = {};
+  for (const field of fields) {
+    let sum = 0;
+    for (const i of cells) sum += state[field] ? state[field][i] : 0;
+    out[field] = cells.length ? sum / cells.length : 0;
+  }
+  return out;
+}
+
+function summariseToolDelta(before, after) {
+  const labels = {
+    water: 'water',
+    ice: 'ice',
+    temperature: 'temperature',
+    elevation: 'elevation',
+    greenhousePressure: 'greenhouse pressure',
+    nutrientLevel: 'nutrients',
+    habitability: 'habitability',
+    lifeViability: 'life viability',
+    primitiveLife: 'primitive life',
+    dormantLife: 'dormant life',
+    biosphereHealth: 'biosphere health',
+    heatStress: 'heat stress',
+    waterStress: 'water stress',
+    settlements: 'settlements',
+    collapseRisk: 'collapse risk'
+  };
+  const changes = [];
+  for (const [field, label] of Object.entries(labels)) {
+    const delta = (after[field] ?? 0) - (before[field] ?? 0);
+    if (Math.abs(delta) >= 0.003) changes.push(`${label} ${delta > 0 ? 'up' : 'down'} ${Math.abs(delta).toFixed(3)}`);
+  }
+  return changes.length ? changes.slice(0, 5).join('; ') : 'local state remained near threshold; no large mean shift detected';
+}
+
 function applyTool(state, mesh, request = {}) {
-  const tool = request.tool;
+  const tool = normaliseToolId(request.tool);
   const origin = request.cellId | 0;
   const strength = Math.max(0.1, Math.min(2, Number(request.strength ?? 1)));
   const radius = Math.max(0, Math.min(6, Number(request.radius ?? 1) | 0));
+  const def = toolDefinition(tool);
   if (origin < 0 || origin >= state.cellCount) {
     return { success: false, mutated: false, message: 'Invalid target cell.', affected: 0 };
   }
+
   const cells = expandRadius(mesh, origin, radius);
-  if (tool === 'inspect_world') {
+  if (tool === 'inspect') {
+    const validity = validateToolTarget(state, tool, origin);
     state.selectedCell = origin;
-    state.lastAction = `Inspected cell ${origin}.`;
-    return { success: true, mutated: false, message: state.lastAction, affected: 1 };
+    state.lastAction = `Inspected cell ${origin}. ${validity.suggestion}`;
+    state.lastChange = 'What changed: nothing. Inspect World is read-only.';
+    state.lastWatch = validity.watch;
+    state.lastLimitingFactor = limitingFactor(state, origin);
+    return { success: true, mutated: false, message: state.lastAction, affected: 1, validation: validity };
   }
 
-  const before = localMutationSignature(state, cells);
+  const originValidation = validateToolTarget(state, tool, origin);
+  if (!originValidation.valid) {
+    state.selectedCell = origin;
+    state.lastAction = `${def.label} could not be applied to cell ${origin}. ${originValidation.reason}`;
+    state.lastChange = `What changed: nothing. ${originValidation.suggestion}`;
+    state.lastWatch = originValidation.watch;
+    state.lastLimitingFactor = limitingFactor(state, origin);
+    return { success: false, mutated: false, message: state.lastAction, affected: 0, validation: originValidation };
+  }
+
+  const beforeSig = localMutationSignature(state, cells);
+  const beforeMeans = localMeans(state, cells);
   let affected = 0;
-  let message = '';
+  let skipped = 0;
 
-  if (tool === 'comet_delivery') {
-    for (const i of cells) {
-      const falloff = localFalloff(mesh, origin, i, radius);
-      state.water[i] = clamp01(state.water[i] + 0.16 * strength * falloff);
-      state.humidity[i] = clamp01(state.humidity[i] + 0.10 * strength * falloff);
-      state.rainfall[i] = clamp01(state.rainfall[i] + 0.08 * strength * falloff);
-      if (state.temperature[i] < 0.34) state.ice[i] = clamp01(state.ice[i] + 0.04 * strength * falloff);
-      affected += 1;
+  for (const i of cells) {
+    const validity = validateToolTarget(state, tool, i);
+    if (!validity.valid && tool !== 'stabilise') {
+      skipped += 1;
+      continue;
     }
-    message = `Comet delivery added water to ${affected} cells.`;
-  } else if (tool === 'volcanic_outgassing') {
-    for (const i of cells) {
-      const falloff = localFalloff(mesh, origin, i, radius);
-      state.greenhousePressure[i] = clamp01(state.greenhousePressure[i] + 0.08 * strength * falloff);
-      state.temperature[i] = clamp01(state.temperature[i] + 0.06 * strength * falloff);
-      state.nutrientLevel[i] = clamp01(state.nutrientLevel[i] + 0.05 * strength * falloff);
-      state.disturbancePressure[i] = clamp01(state.disturbancePressure[i] + 0.06 * strength * falloff);
-      affected += 1;
+    const falloff = localFalloff(mesh, origin, i, radius);
+    const f = strength * falloff;
+    const old = localMutationSignature(state, [i]);
+    if (tool === 'addWater') {
+      state.water[i] = clamp01(state.water[i] + 0.14 * f * (1 - state.water[i] * 0.45));
+      state.humidity[i] = clamp01(state.humidity[i] + 0.09 * f);
+      state.rainfall[i] = clamp01(state.rainfall[i] + 0.06 * f);
+      state.temperature[i] = clamp01(state.temperature[i] - 0.012 * f);
+      state.waterStress[i] = clamp01(state.waterStress[i] - 0.06 * f);
+      if (state.temperature[i] < 0.34) state.ice[i] = clamp01(state.ice[i] + 0.025 * f);
+    } else if (tool === 'iceAsteroid') {
+      state.water[i] = clamp01(state.water[i] + 0.08 * f);
+      state.ice[i] = clamp01(state.ice[i] + 0.15 * f * (1 - state.ice[i] * 0.40));
+      state.temperature[i] = clamp01(state.temperature[i] - 0.070 * f);
+      state.heatStress[i] = clamp01(state.heatStress[i] - 0.060 * f);
+      state.albedo[i] = clamp01(state.albedo[i] + 0.070 * f);
+      state.disturbancePressure[i] = clamp01(state.disturbancePressure[i] + 0.028 * f);
+    } else if (tool === 'warm') {
+      state.greenhousePressure[i] = clamp01(state.greenhousePressure[i] + 0.070 * f);
+      state.temperature[i] = clamp01(state.temperature[i] + 0.060 * f);
+      state.ice[i] = clamp01(state.ice[i] - 0.070 * f);
+      state.nutrientLevel[i] = clamp01(state.nutrientLevel[i] + 0.032 * f);
+      state.heatStress[i] = clamp01(state.heatStress[i] + 0.028 * f);
+      state.disturbancePressure[i] = clamp01(state.disturbancePressure[i] + 0.040 * f);
+    } else if (tool === 'cool') {
+      state.temperature[i] = clamp01(state.temperature[i] - 0.075 * f);
+      state.heatStress[i] = clamp01(state.heatStress[i] - 0.075 * f);
+      state.cloudCover[i] = clamp01(state.cloudCover[i] + 0.020 * f);
+      if (state.water[i] > 0.08) state.ice[i] = clamp01(state.ice[i] + 0.048 * f);
+    } else if (tool === 'raiseLand') {
+      state.elevation[i] = clamp01(state.elevation[i] + 0.070 * f);
+      state.temperature[i] = clamp01(state.temperature[i] - 0.016 * f);
+      state.runoff[i] = clamp01(state.runoff[i] + 0.040 * f);
+      if (state.elevation[i] > 0.55) state.water[i] = clamp01(state.water[i] - 0.035 * f);
+    } else if (tool === 'lowerLand') {
+      state.elevation[i] = clamp01(state.elevation[i] - 0.070 * f);
+      state.water[i] = clamp01(state.water[i] + 0.052 * f);
+      state.waterAccess[i] = clamp01(state.waterAccess[i] + 0.040 * f);
+      state.runoff[i] = clamp01(state.runoff[i] - 0.022 * f);
+    } else if (tool === 'greenhouseVenting') {
+      state.greenhousePressure[i] = clamp01(state.greenhousePressure[i] - 0.080 * f);
+      state.temperature[i] = clamp01(state.temperature[i] - 0.032 * f);
+      state.heatStress[i] = clamp01(state.heatStress[i] - 0.070 * f);
+      if (state.temperature[i] < 0.34 && state.water[i] > 0.10) state.ice[i] = clamp01(state.ice[i] + 0.014 * f);
+    } else if (tool === 'mineralSeeding') {
+      state.nutrientLevel[i] = clamp01(state.nutrientLevel[i] + 0.16 * f * (1 - state.nutrientLevel[i] * 0.35));
+      state.recoveryPotential[i] = clamp01(state.recoveryPotential[i] + 0.075 * f);
+    } else if (tool === 'seedMicrobes') {
+      state.primitiveLife[i] = clamp01(state.primitiveLife[i] + 0.25 * f * (1 - state.primitiveLife[i] * 0.25));
+      if (state.lifeViability[i] > 0.30) state.dormantLife[i] = clamp01(state.dormantLife[i] + 0.045 * f);
+      state.biomass[i] = clamp01(state.biomass[i] + 0.10 * f);
+    } else if (tool === 'stabilise') {
+      const targetTemp = state.temperature[i] < 0.45 ? 0.47 : (state.temperature[i] > 0.65 ? 0.62 : state.temperature[i]);
+      state.temperature[i] = clamp01(lerp(state.temperature[i], targetTemp, 0.11 * f));
+      state.ecosystemStress[i] = clamp01(state.ecosystemStress[i] - 0.070 * f);
+      state.disturbancePressure[i] = clamp01(state.disturbancePressure[i] - 0.080 * f);
+      state.heatStress[i] = clamp01(state.heatStress[i] - 0.040 * f);
+      state.waterStress[i] = clamp01(state.waterStress[i] - 0.040 * f);
+      state.ecosystemResilience[i] = clamp01(state.ecosystemResilience[i] + 0.045 * f);
+      state.recoveryCapacity[i] = clamp01(state.recoveryCapacity[i] + 0.035 * f);
+      state.stewardshipPressure[i] = clamp01(state.stewardshipPressure[i] + 0.030 * f);
+    } else if (tool === 'seedSettlers') {
+      state.settlements[i] = clamp01(state.settlements[i] + 0.14 * f * (1 - state.settlements[i]));
+      state.populationIndex[i] = clamp01(state.populationIndex[i] + 0.065 * f * (1 - state.populationIndex[i]));
+      state.socialComplexity[i] = clamp01(state.socialComplexity[i] + 0.030 * f);
     }
-    message = `Volcanic outgassing warmed and mineralised ${affected} cells.`;
-  } else if (tool === 'orbital_shade') {
-    for (const i of cells) {
-      const falloff = localFalloff(mesh, origin, i, radius);
-      state.temperature[i] = clamp01(state.temperature[i] - 0.08 * strength * falloff);
-      state.cloudCover[i] = clamp01(state.cloudCover[i] + 0.03 * strength * falloff);
-      if (state.water[i] > 0.12) state.ice[i] = clamp01(state.ice[i] + 0.04 * strength * falloff);
-      affected += 1;
-    }
-    message = `Orbital shade cooled ${affected} cells.`;
-  } else if (tool === 'mineral_seeding') {
-    for (const i of cells) {
-      const falloff = localFalloff(mesh, origin, i, radius);
-      state.nutrientLevel[i] = clamp01(state.nutrientLevel[i] + 0.18 * strength * falloff);
-      state.recoveryPotential[i] = clamp01(state.recoveryPotential[i] + 0.08 * strength * falloff);
-      affected += 1;
-    }
-    message = `Mineral seeding improved nutrient potential in ${affected} cells.`;
-  } else if (tool === 'seed_primitive_life') {
-    let blocked = 0;
-    for (const i of cells) {
-      const falloff = localFalloff(mesh, origin, i, radius);
-      if (state.habitability[i] > 0.46 && state.ice[i] < 0.65 && state.waterAccess[i] > 0.25 && state.nutrientLevel[i] > 0.24) {
-        state.primitiveLife[i] = clamp01(state.primitiveLife[i] + 0.22 * strength * falloff);
-        state.biomass[i] = clamp01(state.biomass[i] + 0.10 * strength * falloff);
-        affected += 1;
-      } else if (state.habitability[i] > 0.32 && state.ice[i] < 0.78) {
-        state.dormantLife[i] = clamp01(state.dormantLife[i] + 0.08 * strength * falloff);
-        affected += 1;
-      } else {
-        blocked += 1;
-      }
-    }
-    if (affected === 0) {
-      const reason = limitingFactor(state, origin);
-      return { success: false, mutated: false, message: `Seed Primitive Life failed: ${reason}.`, affected: 0 };
-    }
-    message = `Seeded primitive life in ${affected} cells; ${blocked} cells were too hostile.`;
-  } else if (tool === 'planetary_stabilisation') {
-    for (const i of cells) {
-      const falloff = localFalloff(mesh, origin, i, radius);
-      state.ecosystemStress[i] = clamp01(state.ecosystemStress[i] - 0.10 * strength * falloff);
-      state.disturbancePressure[i] = clamp01(state.disturbancePressure[i] - 0.10 * strength * falloff);
-      state.ecosystemResilience[i] = clamp01(state.ecosystemResilience[i] + 0.08 * strength * falloff);
-      state.stewardshipPressure[i] = clamp01(state.stewardshipPressure[i] + 0.05 * strength * falloff);
-      state.temperature[i] = clamp01(state.temperature[i] * 0.96 + 0.55 * 0.04);
-      affected += 1;
-    }
-    message = `Planetary stabilisation reduced stress across ${affected} cells.`;
-  } else if (tool === 'seed_early_settlers') {
-    for (const i of cells) {
-      const falloff = localFalloff(mesh, origin, i, radius);
-      const allowed = state.primitiveLife[i] > 0.35 && state.civilisationSuitability[i] > 0.58 && state.waterAccess[i] > 0.35 && state.foodSupport[i] > 0.35;
-      if (allowed) {
-        state.settlements[i] = clamp01(state.settlements[i] + 0.18 * strength * falloff);
-        state.populationIndex[i] = clamp01(state.populationIndex[i] + 0.10 * strength * falloff);
-        state.socialComplexity[i] = clamp01(state.socialComplexity[i] + 0.05 * strength * falloff);
-        affected += 1;
-      }
-    }
-    if (affected === 0) {
-      return { success: false, mutated: false, message: 'Seed Early Settlers failed: world is lifeless or locally unsuitable.', affected: 0 };
-    }
-    message = `Seeded early settlers in ${affected} suitable cells.`;
-  } else {
-    return { success: false, mutated: false, message: `Unsupported tool: ${tool}`, affected: 0 };
+    updateCellDerivedDiagnostics(state, mesh, i);
+    state.dirtyCells[i] = 1;
+    if (localMutationSignature(state, [i]) !== old) affected += 1;
   }
 
-  const after = localMutationSignature(state, cells);
-  const mutated = before !== after;
+  recomputeDerivedDiagnostics(state, mesh);
+  const afterSig = localMutationSignature(state, cells);
+  const mutated = beforeSig !== afterSig;
+  const afterMeans = localMeans(state, cells);
   state.selectedCell = origin;
-  state.lastAction = message;
-  state.lastLimitingFactor = mutated ? 'tool applied' : 'no material change';
-  state.renderDirty = mutated;
-  state.trendDirty = mutated;
-  return { success: mutated, mutated, message, affected };
+  state.lastLimitingFactor = mutated ? 'tool applied' : limitingFactor(state, origin);
+  if (!mutated) {
+    state.lastAction = `${def.label} found no material target cells in radius ${radius}.`;
+    state.lastChange = `What changed: nothing material. ${originValidation.suggestion}`;
+    state.lastWatch = originValidation.watch;
+    state.renderDirty = false;
+    state.trendDirty = false;
+    return { success: false, mutated: false, message: state.lastAction, affected: 0, skipped, validation: originValidation };
+  }
+
+  const deltaText = summariseToolDelta(beforeMeans, afterMeans);
+  state.lastAction = `${def.label} affected ${affected} cells${skipped ? ` and skipped ${skipped}` : ''}.`;
+  state.lastChange = `What changed: ${deltaText}. ${originValidation.suggestion}`;
+  state.lastWatch = originValidation.watch;
+  state.renderDirty = true;
+  state.trendDirty = true;
+  return { success: true, mutated: true, message: `${state.lastAction} ${state.lastChange}`, affected, skipped, before: beforeMeans, after: afterMeans, validation: originValidation };
 }
 
 function localFalloff(mesh, origin, cell, radius) {
@@ -1418,26 +1709,34 @@ function localFalloff(mesh, origin, cell, radius) {
 
 function localMutationSignature(state, cells) {
   let h = 2166136261 >>> 0;
+  const fields = [
+    'elevation', 'water', 'ice', 'temperature', 'humidity', 'rainfall', 'runoff', 'waterFlow',
+    'habitability', 'lifeViability', 'survivalPressure', 'extinctionRisk', 'biosphereHealth',
+    'greenhousePressure', 'nutrientLevel', 'heatStress', 'waterStress', 'albedo',
+    'primitiveLife', 'dormantLife', 'biomass', 'producerMats', 'biodiversityIndex',
+    'ecosystemResilience', 'ecosystemStress', 'disturbancePressure', 'settlements',
+    'populationIndex', 'socialComplexity', 'civilisationStress', 'collapseRisk'
+  ];
   for (const i of cells) {
-    h ^= Math.round(state.water[i] * 1000) + i;
+    h ^= i;
     h = Math.imul(h, 16777619) >>> 0;
-    h ^= Math.round(state.temperature[i] * 1000);
-    h = Math.imul(h, 16777619) >>> 0;
-    h ^= Math.round(state.primitiveLife[i] * 1000);
-    h = Math.imul(h, 16777619) >>> 0;
-    h ^= Math.round(state.settlements[i] * 1000);
-    h = Math.imul(h, 16777619) >>> 0;
+    for (const field of fields) {
+      const arr = state[field];
+      if (!arr) continue;
+      h ^= Math.round(arr[i] * 100000);
+      h = Math.imul(h, 16777619) >>> 0;
+    }
   }
   return h >>> 0;
 }
 
 function limitingFactor(state, i) {
   if (state.waterAccess[i] < 0.25) return 'too dry';
-  if (state.temperature[i] > 0.78) return 'too hot';
+  if (state.temperature[i] > 0.78 || state.heatStress[i] > 0.62) return 'too hot';
   if (state.temperature[i] < 0.30) return 'too cold';
   if (state.ice[i] > 0.65) return 'too icy';
   if (state.nutrientLevel[i] < 0.24) return 'too nutrient-poor';
-  if (state.ecosystemStress[i] > 0.70) return 'too stressed';
+  if (state.ecosystemStress[i] > 0.70 || state.survivalPressure[i] > 0.72) return 'too stressed';
   return 'insufficient habitability';
 }
 
@@ -1445,7 +1744,7 @@ function limitingFactor(state, i) {
 /* ============================================================
    Probes
    Source section: sim/probes.js
-   Compacted for Engine v2 0.1.7.
+   Compacted for Engine v2 0.1.8.
    ============================================================ */
 
 
@@ -1546,8 +1845,95 @@ function executeProbe(probeId, ctx, startSig) {
 
   if (probeId === 'civilisation_gate') {
     generateWorld(ctx.state, ctx.mesh, { seed: 'civ-gate-probe', template: 'procedural_lifeless', archetype: 'icy' });
-    const result = applyTool(ctx.state, ctx.mesh, { tool: 'seed_early_settlers', cellId: 0, radius: 2, strength: 1 });
+    const result = applyTool(ctx.state, ctx.mesh, { tool: 'seedSettlers', cellId: 0, radius: 2, strength: 1 });
     return { status: result.success ? 'fail' : 'pass', detail: result.message };
+  }
+
+
+  if (probeId === 'intervention_parity') {
+    const required = ['inspect', 'addWater', 'iceAsteroid', 'warm', 'cool', 'raiseLand', 'lowerLand', 'greenhouseVenting', 'mineralSeeding', 'seedMicrobes', 'stabilise', 'seedSettlers'];
+    const missing = required.filter((id) => !TOOLS.some((tool) => tool.id === id));
+    const failures = [];
+    if (missing.length) failures.push(`missing tools ${missing.join(', ')}`);
+    const validationsOk = required.every((id) => {
+      const v = validateToolTarget(ctx.state, id, 0);
+      return v && typeof v.valid === 'boolean' && v.reason && v.suggestion && v.watch;
+    });
+    if (!validationsOk) failures.push('validation shape incomplete');
+
+    generateWorld(ctx.state, ctx.mesh, { seed: 'intervention-parity-probe', template: 'earthlike', archetype: 'balanced' });
+    recomputeDerivedDiagnostics(ctx.state, ctx.mesh);
+    function primeForTool(tool, i) {
+      ctx.state.water[i] = 0.35;
+      ctx.state.ice[i] = 0.10;
+      ctx.state.temperature[i] = 0.55;
+      ctx.state.greenhousePressure[i] = 0.45;
+      ctx.state.elevation[i] = 0.52;
+      ctx.state.nutrientLevel[i] = 0.52;
+      ctx.state.waterAccess[i] = 0.55;
+      ctx.state.rainfall[i] = 0.45;
+      ctx.state.humidity[i] = 0.45;
+      ctx.state.runoff[i] = 0.22;
+      ctx.state.habitability[i] = 0.62;
+      ctx.state.ecosystemStress[i] = 0.22;
+      ctx.state.disturbancePressure[i] = 0.12;
+      ctx.state.ecosystemResilience[i] = 0.55;
+      ctx.state.foodSupport[i] = 0.58;
+      ctx.state.civilisationSuitability[i] = 0.62;
+      ctx.state.primitiveLife[i] = tool === 'seedSettlers' ? 0.45 : ctx.state.primitiveLife[i];
+      ctx.state.producerMats[i] = tool === 'seedSettlers' ? 0.30 : ctx.state.producerMats[i];
+      ctx.state.settlements[i] = 0;
+      ctx.state.populationIndex[i] = 0;
+      if (tool === 'addWater') ctx.state.water[i] = 0.20;
+      if (tool === 'iceAsteroid') { ctx.state.ice[i] = 0.05; ctx.state.temperature[i] = 0.72; }
+      if (tool === 'warm') { ctx.state.temperature[i] = 0.28; ctx.state.ice[i] = 0.45; ctx.state.greenhousePressure[i] = 0.25; }
+      if (tool === 'cool') { ctx.state.temperature[i] = 0.82; ctx.state.heatStress[i] = 0.60; }
+      if (tool === 'raiseLand') ctx.state.elevation[i] = 0.32;
+      if (tool === 'lowerLand') ctx.state.elevation[i] = 0.72;
+      if (tool === 'greenhouseVenting') { ctx.state.greenhousePressure[i] = 0.80; ctx.state.temperature[i] = 0.78; ctx.state.heatStress[i] = 0.55; }
+      if (tool === 'mineralSeeding') ctx.state.nutrientLevel[i] = 0.20;
+      if (tool === 'stabilise') { ctx.state.temperature[i] = 0.80; ctx.state.heatStress[i] = 0.50; ctx.state.waterStress[i] = 0.40; }
+      if (tool === 'seedMicrobes') { ctx.state.primitiveLife[i] = 0; ctx.state.lifeViability[i] = 0.65; }
+      recomputeDerivedDiagnostics(ctx.state, ctx.mesh);
+    }
+    function poisonOriginForTool(tool, i) {
+      if (tool === 'addWater') ctx.state.water[i] = 0.99;
+      else if (tool === 'iceAsteroid') { ctx.state.ice[i] = 0.99; ctx.state.temperature[i] = 0.20; ctx.state.water[i] = 0.98; }
+      else if (tool === 'warm') { ctx.state.temperature[i] = 0.99; ctx.state.greenhousePressure[i] = 0.99; ctx.state.ice[i] = 0; }
+      else if (tool === 'cool') { ctx.state.temperature[i] = 0.01; ctx.state.heatStress[i] = 0; }
+      else if (tool === 'raiseLand') ctx.state.elevation[i] = 0.99;
+      else if (tool === 'lowerLand') ctx.state.elevation[i] = 0.01;
+      else if (tool === 'greenhouseVenting') { ctx.state.greenhousePressure[i] = 0.01; ctx.state.heatStress[i] = 0.01; ctx.state.temperature[i] = 0.40; }
+      else if (tool === 'mineralSeeding') { ctx.state.nutrientLevel[i] = 0.99; ctx.state.waterAccess[i] = 0.01; }
+      else if (tool === 'seedMicrobes') { ctx.state.waterAccess[i] = 0.01; ctx.state.temperature[i] = 0.95; ctx.state.habitability[i] = 0.05; }
+      else if (tool === 'stabilise') { ctx.state.temperature[i] = 0.55; ctx.state.heatStress[i] = 0.01; ctx.state.waterStress[i] = 0.01; ctx.state.disturbancePressure[i] = 0.01; ctx.state.habitability[i] = 0.70; }
+      else if (tool === 'seedSettlers') { ctx.state.primitiveLife[i] = 0; ctx.state.producerMats[i] = 0; ctx.state.civilisationSuitability[i] = 0.10; }
+      recomputeDerivedDiagnostics(ctx.state, ctx.mesh);
+    }
+    const mutating = required.filter((id) => id !== 'inspect');
+    for (const tool of mutating) {
+      primeForTool(tool, 0);
+      const before = signatureState(ctx.state);
+      const res = applyTool(ctx.state, ctx.mesh, { tool, cellId: 0, radius: 0, strength: 1 });
+      const after = signatureState(ctx.state);
+      if (!res.mutated || before === after || !Number.isFinite(res.affected)) failures.push(`${tool} did not mutate a valid target`);
+      poisonOriginForTool(tool, 0);
+      const invalidBefore = signatureState(ctx.state);
+      const invalid = applyTool(ctx.state, ctx.mesh, { tool, cellId: 0, radius: 2, strength: 1 });
+      const invalidAfter = signatureState(ctx.state);
+      if (invalid.mutated || invalidBefore !== invalidAfter) failures.push(`${tool} mutated invalid target`);
+    }
+    const r0 = expandRadius(ctx.mesh, 0, 0);
+    const r1 = expandRadius(ctx.mesh, 0, 1);
+    if (!(r0.length === 1 && r0[0] === 0 && r1.length > 1 && new Set(r1).size === r1.length)) failures.push('radius expansion is not mesh-neighbour bounded');
+    const bounded = validateFiniteBounded(ctx.state).length === 0;
+    if (!bounded) failures.push('bounded finite check failed');
+    generateWorld(ctx.state, ctx.mesh, { seed: 'intervention-reset-probe', template: 'procedural_lifeless', archetype: 'balanced' });
+    const a = signatureState(ctx.state);
+    generateWorld(ctx.state, ctx.mesh, { seed: 'intervention-reset-probe', template: 'procedural_lifeless', archetype: 'balanced' });
+    const b = signatureState(ctx.state);
+    if (a !== b) failures.push('reset deterministic signature changed');
+    return { status: failures.length ? 'fail' : 'pass', detail: failures.length ? failures.join('; ') : 'All 12 interventions exist, validate, mutate only valid targets, preserve invalid targets, use mesh radius expansion, remain bounded, and reset deterministically.' };
   }
 
   if (probeId === 'no_dom_in_worker') {
@@ -1645,6 +2031,8 @@ function stepOnce() {
   state.renderDirty = true;
   state.trendDirty = true;
   state.lastAction = summariseStepChange(lifeStats);
+  state.lastChange = 'What changed: climate, water, life, ecosystem, stewardship, and early-civilisation diagnostics advanced through the Worker tick pipeline.';
+  state.lastWatch = 'Watch temperature, water stress, life viability, biosphere health, settlements, and collapse risk.';
   state.diagnostics.lastTickMs = nowMs() - start;
 }
 
@@ -1725,6 +2113,8 @@ function handleCommand(type, payload = {}) {
     const requested = Math.max(1, Math.min(DEFAULT_CONFIG.maxAdvanceSteps, Number(payload.years ?? 1) | 0));
     for (let i = 0; i < requested; i += 1) stepOnce();
     state.lastAction = `Advanced ${requested} years inside the simulation worker.`;
+    state.lastChange = 'What changed: multiple Worker ticks advanced climate, water, life, ecosystem, and early-civilisation diagnostics.';
+    state.lastWatch = 'Watch trends for water, ice, temperature, primitive life, biosphere health, and collapse risk.';
     fullUpdate({ render: true });
   } else if (type === COMMANDS.SET_SPEED) {
     state.speed = Math.max(0, Math.min(10, Number(payload.speed ?? 1)));
@@ -1734,7 +2124,6 @@ function handleCommand(type, payload = {}) {
     const start = nowMs();
     const result = applyTool(state, mesh, payload || {});
     state.diagnostics.lastToolMs = nowMs() - start;
-    state.lastAction = result.message;
     fullUpdate({ render: result.mutated || result.success });
   } else if (type === COMMANDS.SELECT_CELL) {
     const id = Number(payload.cellId);

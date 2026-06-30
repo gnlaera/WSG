@@ -7,10 +7,10 @@
 /* ============================================================
    Protocol constants
    Source section: message-protocol.js
-   Compacted for Engine v2 0.1.9.
+   Compacted for Engine v2 0.2.0.
    ============================================================ */
 
-const BUILD_LABEL = 'WSG Engine v2 Build 0.1.9 - Two-File Static Worker';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.2.0 - Scientific Visual Resolution Upgrade';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',
@@ -63,6 +63,18 @@ const ARCHETYPES = Object.freeze([
   { id: 'greenhouse', label: 'Greenhouse' },
   { id: 'rugged', label: 'Rugged Highlands' }
 ]);
+
+
+const MESH_QUALITY_OPTIONS = Object.freeze([
+  { id: 'performance', label: 'Performance - 1,280 faces', frequency: 8, targetFaces: 1280, default: false },
+  { id: 'standard', label: 'Standard - 2,880 faces', frequency: 12, targetFaces: 2880, default: true },
+  { id: 'high', label: 'High / Experimental - 5,120 faces', frequency: 16, targetFaces: 5120, default: false }
+]);
+
+function meshQualityProfile(id) {
+  const requested = String(id || 'standard');
+  return MESH_QUALITY_OPTIONS.find((item) => item.id === requested) || MESH_QUALITY_OPTIONS.find((item) => item.id === 'standard');
+}
 
 const LAYERS = Object.freeze([
   { id: 'elevation', label: 'Elevation' },
@@ -133,7 +145,8 @@ const PROBES = Object.freeze([
   { id: 'civilisation_gate', label: 'Civilisation emergence gate probe' },
   { id: 'intervention_parity', label: 'Intervention parity probe' },
   { id: 'no_dom_in_worker', label: 'No UI access in worker probe' },
-  { id: 'render_data_finite', label: 'Render-data finite/bounded probe' }
+  { id: 'render_data_finite', label: 'Render-data finite/bounded probe' },
+  { id: 'visual_resolution', label: 'Scientific visual resolution probe' }
 ]);
 
 function makeEnvelope(type, payload = {}) {
@@ -144,7 +157,7 @@ function makeEnvelope(type, payload = {}) {
 /* ============================================================
    Utility math
    Source section: util/math.js
-   Compacted for Engine v2 0.1.9.
+   Compacted for Engine v2 0.2.0.
    ============================================================ */
 
 function clamp(value, min, max) {
@@ -190,7 +203,7 @@ function finite01(value) {
 /* ============================================================
    Deterministic random
    Source section: util/random.js
-   Compacted for Engine v2 0.1.9.
+   Compacted for Engine v2 0.2.0.
    ============================================================ */
 
 function stringToSeed(input) {
@@ -228,7 +241,7 @@ function hashUnit(seed, a = 0, b = 0) {
 /* ============================================================
    Performance helpers
    Source section: util/perf.js
-   Compacted for Engine v2 0.1.9.
+   Compacted for Engine v2 0.2.0.
    ============================================================ */
 
 function nowMs() {
@@ -255,13 +268,13 @@ function estimateTypedPayloadBytes(payload) {
 /* ============================================================
    State schema
    Source section: state-schema.js
-   Compacted for Engine v2 0.1.9.
+   Compacted for Engine v2 0.2.0.
    ============================================================ */
 
 const STATE_SCHEMA_VERSION = 'engine-v2-state-schema-0.1.0';
 
 const DEFAULT_CONFIG = Object.freeze({
-  subdivisions: 3,
+  defaultMeshQuality: 'standard',
   initialSeed: 'ENGINE-V2-001',
   yearPerStep: 1,
   maxAdvanceSteps: 250,
@@ -317,6 +330,8 @@ const SIM_ARRAY_FIELDS = Object.freeze([
   'survivalPressure',
   'extinctionRisk',
   'biosphereHealth',
+  'slopeProxy',
+  'coastProximity',
   'dirtyCells'
 ]);
 
@@ -364,7 +379,9 @@ const RENDER_ARRAY_FIELDS = Object.freeze([
   'lifeViability',
   'survivalPressure',
   'extinctionRisk',
-  'biosphereHealth'
+  'biosphereHealth',
+  'slopeProxy',
+  'coastProximity'
 ]);
 
 function createSimulationState(mesh, options = {}) {
@@ -376,6 +393,8 @@ function createSimulationState(mesh, options = {}) {
     seed: options.seed || DEFAULT_CONFIG.initialSeed,
     template: options.template || DEFAULT_CONFIG.defaultTemplate,
     archetype: options.archetype || DEFAULT_CONFIG.defaultArchetype,
+    meshQuality: mesh.qualityId || options.meshQuality || DEFAULT_CONFIG.defaultMeshQuality,
+    meshQualityLabel: mesh.qualityLabel || meshQualityProfile(options.meshQuality || DEFAULT_CONFIG.defaultMeshQuality).label,
     stepCount: 0,
     year: 0,
     speed: DEFAULT_CONFIG.defaultSpeed,
@@ -399,7 +418,11 @@ function createSimulationState(mesh, options = {}) {
       lastRenderBytes: 0,
       messageCount: 0,
       lastError: '',
-      neighbourLinks: mesh.neighbourLinkCount
+      neighbourLinks: mesh.neighbourLinkCount,
+      meshQuality: mesh.qualityId || DEFAULT_CONFIG.defaultMeshQuality,
+      meshQualityLabel: mesh.qualityLabel || 'Standard - 2,880 faces',
+      meshFrequency: mesh.frequency || 12,
+      performanceWarning: ''
     }
   };
 
@@ -422,6 +445,8 @@ function cloneState(state) {
     seed: state.seed,
     template: state.template,
     archetype: state.archetype,
+    meshQuality: state.meshQuality,
+    meshQualityLabel: state.meshQualityLabel,
     stepCount: state.stepCount,
     year: state.year,
     speed: state.speed,
@@ -450,6 +475,8 @@ function restoreState(target, snapshot) {
   target.seed = snapshot.seed;
   target.template = snapshot.template;
   target.archetype = snapshot.archetype;
+  target.meshQuality = snapshot.meshQuality;
+  target.meshQualityLabel = snapshot.meshQualityLabel;
   target.stepCount = snapshot.stepCount;
   target.year = snapshot.year;
   target.speed = snapshot.speed;
@@ -484,7 +511,7 @@ function validateArrayShape(state) {
 /* ============================================================
    Mesh
    Source section: sim/mesh.js
-   Compacted for Engine v2 0.1.9.
+   Compacted for Engine v2 0.2.0.
    ============================================================ */
 
 
@@ -512,41 +539,73 @@ function addNeighbour(neighbours, degrees, a, b) {
   }
 }
 
+function quantizedVertexKey(v) {
+  return `${Math.round(v[0] * 1e10)}:${Math.round(v[1] * 1e10)}:${Math.round(v[2] * 1e10)}`;
+}
+
+function createMeshForQuality(qualityId) {
+  const profile = meshQualityProfile(qualityId);
+  return createIcosphereMesh({ frequency: profile.frequency, qualityId: profile.id, qualityLabel: profile.label });
+}
+
 function createIcosphereMesh(options = {}) {
-  const subdivisions = clamp(options.subdivisions ?? 3, 0, 5) | 0;
+  const frequency = clamp(options.frequency ?? 12, 1, 24) | 0;
+  const qualityId = String(options.qualityId || (frequency <= 8 ? 'performance' : frequency >= 16 ? 'high' : 'standard'));
+  const qualityLabel = options.qualityLabel || meshQualityProfile(qualityId).label;
   const phi = (1 + Math.sqrt(5)) / 2;
-  let vertices = [
+  const baseVertices = [
     [-1, phi, 0], [1, phi, 0], [-1, -phi, 0], [1, -phi, 0],
     [0, -1, phi], [0, 1, phi], [0, -1, -phi], [0, 1, -phi],
     [phi, 0, -1], [phi, 0, 1], [-phi, 0, -1], [-phi, 0, 1]
   ].map(normalizeVertex);
-
-  let faces = [
+  const baseFaces = [
     [0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11],
     [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8],
     [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9],
     [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1]
   ];
-
-  for (let level = 0; level < subdivisions; level += 1) {
-    const midpointCache = new Map();
-    const getMidpointIndex = (a, b) => {
-      const key = edgeKey(a, b);
-      if (midpointCache.has(key)) return midpointCache.get(key);
-      const index = vertices.length;
-      vertices.push(midpoint(vertices[a], vertices[b]));
-      midpointCache.set(key, index);
-      return index;
-    };
-
-    const nextFaces = [];
-    for (const [a, b, c] of faces) {
-      const ab = getMidpointIndex(a, b);
-      const bc = getMidpointIndex(b, c);
-      const ca = getMidpointIndex(c, a);
-      nextFaces.push([a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]);
+  const vertices = [];
+  const vertexIndex = new Map();
+  const getVertexIndex = (v) => {
+    const n = normalizeVertex(v);
+    const key = quantizedVertexKey(n);
+    const existing = vertexIndex.get(key);
+    if (existing !== undefined) return existing;
+    const id = vertices.length;
+    vertices.push(n);
+    vertexIndex.set(key, id);
+    return id;
+  };
+  const faces = [];
+  for (const [ia, ib, ic] of baseFaces) {
+    const a = baseVertices[ia];
+    const b = baseVertices[ib];
+    const c = baseVertices[ic];
+    const grid = [];
+    for (let u = 0; u <= frequency; u += 1) {
+      grid[u] = [];
+      for (let v = 0; v <= frequency - u; v += 1) {
+        const w = frequency - u - v;
+        const p = [
+          (a[0] * w + b[0] * u + c[0] * v) / frequency,
+          (a[1] * w + b[1] * u + c[1] * v) / frequency,
+          (a[2] * w + b[2] * u + c[2] * v) / frequency
+        ];
+        grid[u][v] = getVertexIndex(p);
+      }
     }
-    faces = nextFaces;
+    for (let u = 0; u < frequency; u += 1) {
+      for (let v = 0; v < frequency - u; v += 1) {
+        const v00 = grid[u][v];
+        const v10 = grid[u + 1][v];
+        const v01 = grid[u][v + 1];
+        faces.push([v00, v10, v01]);
+        if (v < frequency - u - 1) {
+          const v11 = grid[u + 1][v + 1];
+          faces.push([v10, v11, v01]);
+        }
+      }
+    }
   }
 
   const count = faces.length;
@@ -571,11 +630,7 @@ function createIcosphereMesh(options = {}) {
     const c = vertices[face[2]];
     const ab = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
     const ac = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
-    const normal = [
-      ab[1] * ac[2] - ab[2] * ac[1],
-      ab[2] * ac[0] - ab[0] * ac[2],
-      ab[0] * ac[1] - ab[1] * ac[0]
-    ];
+    const normal = [ab[1] * ac[2] - ab[2] * ac[1], ab[2] * ac[0] - ab[0] * ac[2], ab[0] * ac[1] - ab[1] * ac[0]];
     const centreRaw = normalizeVertex([a[0] + b[0] + c[0], a[1] + b[1] + c[1], a[2] + b[2] + c[2]]);
     const outward = normal[0] * centreRaw[0] + normal[1] * centreRaw[1] + normal[2] * centreRaw[2];
     if (outward < 0) face = [face[0], face[2], face[1]];
@@ -590,7 +645,6 @@ function createIcosphereMesh(options = {}) {
       triangleY[id * 3 + k] = v[1];
       triangleZ[id * 3 + k] = v[2];
     }
-
     const a = vertices[face[0]];
     const b = vertices[face[1]];
     const c = vertices[face[2]];
@@ -600,24 +654,17 @@ function createIcosphereMesh(options = {}) {
     centerZ[id] = centre[2];
     latitude[id] = Math.asin(centre[1]) * 180 / Math.PI;
     longitude[id] = Math.atan2(centre[2], centre[0]) * 180 / Math.PI;
-
     const ab = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
     const ac = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
-    const cross = [
-      ab[1] * ac[2] - ab[2] * ac[1],
-      ab[2] * ac[0] - ab[0] * ac[2],
-      ab[0] * ac[1] - ab[1] * ac[0]
-    ];
+    const cross = [ab[1] * ac[2] - ab[2] * ac[1], ab[2] * ac[0] - ab[0] * ac[2], ab[0] * ac[1] - ab[1] * ac[0]];
     areaWeight[id] = Math.max(1e-6, Math.hypot(cross[0], cross[1], cross[2]) * 0.5);
-
     for (let k = 0; k < 3; k += 1) {
       const aIndex = face[k];
       const bIndex = face[(k + 1) % 3];
       const key = edgeKey(aIndex, bIndex);
       const other = faceEdges.get(key);
-      if (other === undefined) {
-        faceEdges.set(key, id);
-      } else {
+      if (other === undefined) faceEdges.set(key, id);
+      else {
         addNeighbour(neighbours, degrees, id, other);
         addNeighbour(neighbours, degrees, other, id);
       }
@@ -630,14 +677,14 @@ function createIcosphereMesh(options = {}) {
     areaSum += areaWeight[i];
     neighbourLinkCount += degrees[i];
   }
-  const areaMean = areaSum / count;
-  for (let i = 0; i < count; i += 1) {
-    areaWeight[i] = areaWeight[i] / areaMean;
-  }
-
+  const areaMean = areaSum / Math.max(1, count);
+  for (let i = 0; i < count; i += 1) areaWeight[i] = areaWeight[i] / areaMean;
   return {
-    type: 'icosphere-triangle-faces',
-    subdivisions,
+    type: 'frequency-icosphere-triangle-faces',
+    qualityId,
+    qualityLabel,
+    frequency,
+    subdivisions: frequency,
     vertexCount: vertices.length,
     count,
     triangleX,
@@ -685,10 +732,28 @@ function expandRadius(mesh, originCell, radius) {
 }
 
 function meshSignature(mesh) {
-  return `${mesh.type}|F${mesh.subdivisions}|cells:${mesh.count}|vertices:${mesh.vertexCount}|links:${mesh.neighbourLinkCount}`;
+  return `${mesh.type}|Q:${mesh.qualityId || 'standard'}|F${mesh.frequency || mesh.subdivisions}|cells:${mesh.count}|vertices:${mesh.vertexCount}|links:${mesh.neighbourLinkCount}`;
 }
 
 
+
+function updateVisualProxyFields(state, mesh) {
+  for (let i = 0; i < state.cellCount; i += 1) {
+    const offset = i * 3;
+    let maxSlope = 0;
+    let coastHits = 0;
+    for (let k = 0; k < 3; k += 1) {
+      const n = mesh.neighbours[offset + k];
+      if (n >= 0) {
+        maxSlope = Math.max(maxSlope, Math.abs(state.elevation[i] - state.elevation[n]));
+        const waterCross = (state.water[i] >= 0.50) !== (state.water[n] >= 0.50);
+        if (waterCross) coastHits += 1;
+      }
+    }
+    state.slopeProxy[i] = clamp01(maxSlope * 5.5);
+    state.coastProximity[i] = clamp01(coastHits / 3 + smoothstep(0.25, 0.56, state.water[i]) * smoothstep(0.90, 0.45, state.water[i]) * 0.45);
+  }
+}
 
 function updateCellDerivedDiagnostics(state, mesh, i) {
   const latAbs = Math.abs(mesh.latitude[i]) / 90;
@@ -717,12 +782,13 @@ function recomputeDerivedDiagnostics(state, mesh) {
   for (let i = 0; i < state.cellCount; i += 1) {
     updateCellDerivedDiagnostics(state, mesh, i);
   }
+  updateVisualProxyFields(state, mesh);
 }
 
 /* ============================================================
    Summaries and signatures
    Source section: sim/summaries.js
-   Compacted for Engine v2 0.1.9.
+   Compacted for Engine v2 0.2.0.
    ============================================================ */
 
 
@@ -768,6 +834,9 @@ function computeSummary(state, mesh) {
     schemaVersion: state.schemaVersion,
     meshType: mesh.type,
     meshSignature: meshSignature(mesh),
+    meshQuality: state.meshQuality || mesh.qualityId || DEFAULT_CONFIG.defaultMeshQuality,
+    meshQualityLabel: state.meshQualityLabel || mesh.qualityLabel || meshQualityProfile(DEFAULT_CONFIG.defaultMeshQuality).label,
+    meshFrequency: mesh.frequency || mesh.subdivisions,
     cellCount: state.cellCount,
     neighbourLinks: mesh.neighbourLinkCount,
     seed: state.seed,
@@ -883,6 +952,9 @@ function buildRenderData(state, mesh) {
   const payload = {
     meshType: mesh.type,
     subdivisions: mesh.subdivisions,
+    frequency: mesh.frequency || mesh.subdivisions,
+    meshQuality: mesh.qualityId || state.meshQuality,
+    meshQualityLabel: mesh.qualityLabel || state.meshQualityLabel,
     count: mesh.count,
     selectedCell: state.selectedCell,
     tick: state.stepCount,
@@ -1018,7 +1090,7 @@ function localLimitingFactor(state, i) {
 /* ============================================================
    Generation
    Source section: sim/generation.js
-   Compacted for Engine v2 0.1.9.
+   Compacted for Engine v2 0.2.0.
    ============================================================ */
 
 
@@ -1082,10 +1154,12 @@ function generateWorld(state, mesh, options = {}) {
   state.seed = seedText;
   state.template = templateId;
   state.archetype = archetypeId;
+  state.meshQuality = mesh.qualityId || options.meshQuality || DEFAULT_CONFIG.defaultMeshQuality;
+  state.meshQualityLabel = mesh.qualityLabel || meshQualityProfile(state.meshQuality).label;
   state.stepCount = 0;
   state.year = 0;
   state.selectedCell = -1;
-  state.lastAction = `Generated ${templateId.replaceAll('_', ' ')} with ${archetypeId.replaceAll('_', ' ')} archetype.`;
+  state.lastAction = `Generated ${templateId.replaceAll('_', ' ')} with ${archetypeId.replaceAll('_', ' ')} archetype at ${state.meshQualityLabel}.`;
   state.lastChange = 'What changed: full planet generation reset all Worker-owned state arrays and render data.';
   state.lastWatch = 'Watch water, ice, temperature, habitability, life viability, and selected tool guidance.';
   state.lastLimitingFactor = 'new world';
@@ -1200,7 +1274,7 @@ function seedEarthlikeLife(state, mesh) {
 /* ============================================================
    Physical systems
    Source section: sim/physical.js
-   Compacted for Engine v2 0.1.9.
+   Compacted for Engine v2 0.2.0.
    ============================================================ */
 
 
@@ -1235,7 +1309,7 @@ function computeHabitability(state, i) {
 /* ============================================================
    Water
    Source section: sim/water.js
-   Compacted for Engine v2 0.1.9.
+   Compacted for Engine v2 0.2.0.
    ============================================================ */
 
 
@@ -1289,7 +1363,7 @@ function stepWater(state, mesh) {
 /* ============================================================
    Primitive life
    Source section: sim/life.js
-   Compacted for Engine v2 0.1.9.
+   Compacted for Engine v2 0.2.0.
    ============================================================ */
 
 
@@ -1353,7 +1427,7 @@ function stepLife(state, mesh) {
 /* ============================================================
    Ecosystems
    Source section: sim/ecosystems.js
-   Compacted for Engine v2 0.1.9.
+   Compacted for Engine v2 0.2.0.
    ============================================================ */
 
 
@@ -1374,7 +1448,7 @@ function stepEcosystems(state) {
 /* ============================================================
    Stewardship
    Source section: sim/stewardship.js
-   Compacted for Engine v2 0.1.9.
+   Compacted for Engine v2 0.2.0.
    ============================================================ */
 
 
@@ -1393,7 +1467,7 @@ function stepStewardship(state) {
 /* ============================================================
    Civilisation diagnostics
    Source section: sim/civilisation.js
-   Compacted for Engine v2 0.1.9.
+   Compacted for Engine v2 0.2.0.
    ============================================================ */
 
 
@@ -1417,7 +1491,7 @@ function stepCivilisation(state) {
 /* ============================================================
    Tools
    Source section: sim/tools.js
-   Compacted for Engine v2 0.1.9.
+   Compacted for Engine v2 0.2.0.
    ============================================================ */
 
 
@@ -1744,7 +1818,7 @@ function limitingFactor(state, i) {
 /* ============================================================
    Probes
    Source section: sim/probes.js
-   Compacted for Engine v2 0.1.9.
+   Compacted for Engine v2 0.2.0.
    ============================================================ */
 
 
@@ -1941,6 +2015,13 @@ function executeProbe(probeId, ctx, startSig) {
     return { status: ok ? 'pass' : 'fail', detail: ok ? 'Probe found simulation-only context.' : 'Unexpected UI surface detected.' };
   }
 
+  if (probeId === 'visual_resolution') {
+    const profile = meshQualityProfile(ctx.state.meshQuality || ctx.mesh.qualityId || DEFAULT_CONFIG.defaultMeshQuality);
+    const shapeFailures = validateArrayShape(ctx.state);
+    const ok = ctx.mesh.count === profile.targetFaces && ctx.mesh.count >= 1280 && shapeFailures.length === 0 && ctx.mesh.frequency === profile.frequency;
+    return { status: ok ? 'pass' : 'fail', detail: ok ? `${profile.label}; ${ctx.mesh.count} active triangle cells; arrays match active cell count.` : `Expected ${profile.targetFaces} cells for ${profile.label}; got ${ctx.mesh.count}. ${shapeFailures.join('; ')}` };
+  }
+
   if (probeId === 'render_data_finite') {
     const render = buildRenderData(ctx.state, ctx.mesh);
     const failures = [];
@@ -1974,7 +2055,8 @@ let state = null;
 let lastGenerateOptions = {
   seed: DEFAULT_CONFIG.initialSeed,
   template: DEFAULT_CONFIG.defaultTemplate,
-  archetype: DEFAULT_CONFIG.defaultArchetype
+  archetype: DEFAULT_CONFIG.defaultArchetype,
+  meshQuality: DEFAULT_CONFIG.defaultMeshQuality
 };
 let pendingTemplate = DEFAULT_CONFIG.defaultTemplate;
 let pendingArchetype = DEFAULT_CONFIG.defaultArchetype;
@@ -1984,21 +2066,25 @@ function post(type, payload = {}, transfer = []) {
 }
 
 function ensureState() {
-  if (!mesh) mesh = createIcosphereMesh({ subdivisions: DEFAULT_CONFIG.subdivisions });
-  if (!state) {
+  ensureMeshOnly(lastGenerateOptions.meshQuality || DEFAULT_CONFIG.defaultMeshQuality);
+  if (!state || state.cellCount !== mesh.count) {
     state = createSimulationState(mesh, lastGenerateOptions);
     generateWithOptions(lastGenerateOptions);
   }
 }
 
-function generateWithOptions(options) {
-  ensureMeshOnly();
+function generateWithOptions(options = {}) {
+  const requestedQuality = meshQualityProfile(options.meshQuality || lastGenerateOptions.meshQuality || DEFAULT_CONFIG.defaultMeshQuality);
+  ensureMeshOnly(requestedQuality.id);
   const start = nowMs();
-  if (!state) state = createSimulationState(mesh, options);
+  if (!state || state.cellCount !== mesh.count || state.meshQuality !== requestedQuality.id) {
+    state = createSimulationState(mesh, { ...options, meshQuality: requestedQuality.id });
+  }
   lastGenerateOptions = {
     seed: options.seed || lastGenerateOptions.seed || DEFAULT_CONFIG.initialSeed,
     template: options.template || pendingTemplate || lastGenerateOptions.template || DEFAULT_CONFIG.defaultTemplate,
     archetype: options.archetype || pendingArchetype || lastGenerateOptions.archetype || DEFAULT_CONFIG.defaultArchetype,
+    meshQuality: requestedQuality.id,
     waterLevel: options.waterLevel,
     temperature: options.temperature,
     greenhouse: options.greenhouse,
@@ -2009,12 +2095,19 @@ function generateWithOptions(options) {
   pendingTemplate = lastGenerateOptions.template;
   pendingArchetype = lastGenerateOptions.archetype;
   generateWorld(state, mesh, lastGenerateOptions);
+  state.meshQuality = requestedQuality.id;
+  state.meshQualityLabel = requestedQuality.label;
   state.diagnostics.lastGenerationMs = nowMs() - start;
   state.diagnostics.workerStatus = 'READY';
+  state.diagnostics.meshQuality = requestedQuality.id;
+  state.diagnostics.meshQualityLabel = requestedQuality.label;
+  state.diagnostics.meshFrequency = mesh.frequency || 0;
+  state.diagnostics.performanceWarning = mesh.count > 3000 ? 'High cell count: use Performance quality on slower browsers if render exceeds target.' : '';
 }
 
-function ensureMeshOnly() {
-  if (!mesh) mesh = createIcosphereMesh({ subdivisions: DEFAULT_CONFIG.subdivisions });
+function ensureMeshOnly(qualityId = DEFAULT_CONFIG.defaultMeshQuality) {
+  const profile = meshQualityProfile(qualityId);
+  if (!mesh || mesh.qualityId !== profile.id) mesh = createMeshForQuality(profile.id);
 }
 
 function stepOnce() {
@@ -2075,6 +2168,10 @@ function sendDiagnostics() {
     renderDirty: state ? state.renderDirty : false,
     trendDirty: state ? state.trendDirty : false,
     cellCount: mesh ? mesh.count : 0,
+    meshQuality: mesh ? mesh.qualityId : DEFAULT_CONFIG.defaultMeshQuality,
+    meshQualityLabel: mesh ? mesh.qualityLabel : meshQualityProfile(DEFAULT_CONFIG.defaultMeshQuality).label,
+    meshFrequency: mesh ? mesh.frequency : 0,
+    performanceWarning: state ? state.diagnostics.performanceWarning : '',
     neighbourLinks: mesh ? mesh.neighbourLinkCount : 0,
     bytesTransferredLastRenderUpdate: state ? state.diagnostics.lastRenderBytes : 0,
     workerMessageCount: state ? state.diagnostics.messageCount : 0,
@@ -2093,7 +2190,7 @@ function fullUpdate(options = {}) {
 function handleCommand(type, payload = {}) {
   if (type === COMMANDS.INIT) {
     generateWithOptions(payload || lastGenerateOptions);
-    post(EVENTS.READY, { status: 'READY', meshType: mesh.type, cellCount: mesh.count });
+    post(EVENTS.READY, { status: 'READY', meshType: mesh.type, cellCount: mesh.count, meshQuality: mesh.qualityId, meshQualityLabel: mesh.qualityLabel, meshFrequency: mesh.frequency });
     fullUpdate({ render: true });
     return;
   }

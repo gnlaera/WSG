@@ -10,7 +10,7 @@
    Compacted for Engine v2 0.1.9.
    ============================================================ */
 
-const BUILD_LABEL = 'WSG Engine v2 Build 0.1.9 - Runtime Boot and Product Cleanup';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.1.9 - Two-File Static Worker';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',

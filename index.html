@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
-  <title>WSG Engine v2 Build 0.1.9 - Runtime Boot and Product Cleanup</title>
+  <title>WSG Engine v2 Build 0.1.9 - Two-File Static Worker</title>
   <style>
 :root {
   color-scheme: dark;
@@ -154,7 +154,7 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
 .ledger-grid { display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 8px; }
 .ledger-grid section { padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,0.025); }
 .ledger-grid p { color: var(--muted); margin-bottom: 0; }
-.panel-hidden, .scaffold-hidden { display: none !important; }
+.panel-hidden { display: none !important; }
 .small-note { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
 .footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-top: 1px solid var(--line); background: rgba(3, 8, 13, 0.82); color: var(--muted); font-size: 12px; }
 @media (max-width: 1180px) {
@@ -180,8 +180,8 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
 <div class="app">
   <header class="topbar">
     <div class="brand">
-      <strong id="build-label">WSG Engine v2 Build 0.1.9 - Runtime Boot and Product Cleanup</strong>
-      <span id="summary-line">Engine v2 Worker branch with Classic-style interventions and product-clean player surface.</span>
+      <strong id="build-label">WSG Engine v2 Build 0.1.9 - Two-File Static Worker</strong>
+      <span id="summary-line">Engine v2 Worker branch with Classic-style visual parity and functional boot hotfix.</span>
     </div>
     <label class="small headerTemplateControl" title="World template">
       <span>Template</span>
@@ -209,6 +209,9 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
     <button id="rotate-right" type="button">Rotate Right</button>
     <button id="reset-view" type="button">Reset View</button>
     <button id="toggle-trends" class="toggle-button" type="button">Show Trends</button>
+    <button id="toggle-diagnostics" class="toggle-button" type="button">Show Dev/Test</button>
+    <button id="toggle-ledger" class="toggle-button" type="button">Show Migration Ledger</button>
+    <button id="toggle-event-log" class="toggle-button" type="button">Show Event Log</button>
     <div class="status-pill">Worker: <span id="worker-status">initialising</span></div>
   </header>
 
@@ -233,7 +236,7 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
       <div class="feedbackCard">
         <h3>Quick Start</h3>
         <p>Generate planet. Select a tool. Click the globe. Step or Run time. Inspect consequences.</p>
-        <p class="small">The Worker owns state and tool application. This screen stays focused on the planet and player actions.</p>
+        <p class="small">The Worker owns state, tool application, probes, summaries, validation, and render data. This page is presentation only.</p>
       </div>
     </aside>
 
@@ -276,15 +279,1234 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
         <p class="small-note">Compact trend summary. Hidden by default to preserve the planet-first view.</p>
         <div id="trends-panel"><p>Trend samples will appear after generation and ticks.</p></div>
       </section>
+      <section class="feedbackCard panel-hidden" id="diagnostics-card">
+        <h3>Developer / Diagnostics</h3>
+        <div id="diagnostics-panel" class="metric-grid"><p>Waiting for diagnostics.</p></div>
+        <hr>
+        <label class="small">Probe<select id="probe-select"></select></label>
+        <div class="button-row">
+          <button id="run-probe-button" type="button">Run Probe</button>
+          <button id="run-all-probes-button" type="button">Run All Probes</button>
+        </div>
+        <div id="probe-output" class="probe-output"></div>
+      </section>
     </aside>
   </main>
 
+  <section class="bottom-panels panel-hidden" id="advanced-bottom-panels">
+    <article class="card panel-hidden" id="migration-ledger-card">
+      <div id="migration-ledger"></div>
+    </article>
+    <article class="card panel-hidden" id="event-log-card">
+      <h3>Show Event Log</h3>
+      <div id="event-log" class="event-log"></div>
+    </article>
+  </section>
+
   <footer class="footer">
-    <span>Engine v2 compact Worker build. Three files only. Canvas 2D renderer; Worker-owned simulation state.</span>
-    <span>Runtime boot and product cleanup</span>
+    <span>Engine v2 compact static Worker build. Two files only: index.html and simulation-worker.js. Inline Canvas 2D main-thread renderer; Worker-owned simulation state; no build tooling or imported asset bundles.</span>
+    <span>Two-file Worker architecture</span>
   </footer>
 </div>
 
-<script defer src="./app.js?v=0.1.9"></script>
+<script>
+'use strict';
+
+
+
+/* ============================================================
+   Protocol constants
+   Source section: message-protocol.js
+   Compacted for Engine v2 0.1.9.
+   ============================================================ */
+
+const BUILD_LABEL = 'WSG Engine v2 Build 0.1.9 - Two-File Static Worker';
+
+const COMMANDS = Object.freeze({
+  INIT: 'INIT',
+  GENERATE: 'GENERATE',
+  RESET: 'RESET',
+  STEP: 'STEP',
+  ADVANCE_YEARS: 'ADVANCE_YEARS',
+  SET_SPEED: 'SET_SPEED',
+  APPLY_TOOL: 'APPLY_TOOL',
+  SELECT_CELL: 'SELECT_CELL',
+  SET_TEMPLATE: 'SET_TEMPLATE',
+  SET_ARCHETYPE: 'SET_ARCHETYPE',
+  RUN_PROBE: 'RUN_PROBE',
+  RUN_ALL_PROBES: 'RUN_ALL_PROBES',
+  GET_STATE_SUMMARY: 'GET_STATE_SUMMARY',
+  GET_RENDER_DATA: 'GET_RENDER_DATA'
+});
+
+const EVENTS = Object.freeze({
+  READY: 'READY',
+  STATE_SUMMARY: 'STATE_SUMMARY',
+  RENDER_DATA: 'RENDER_DATA',
+  SELECTED_CELL_SUMMARY: 'SELECTED_CELL_SUMMARY',
+  TREND_SAMPLE: 'TREND_SAMPLE',
+  PROBE_RESULT: 'PROBE_RESULT',
+  PROBE_SUMMARY: 'PROBE_SUMMARY',
+  DIAGNOSTIC_SUMMARY: 'DIAGNOSTIC_SUMMARY',
+  ERROR: 'ERROR'
+});
+
+const VISUAL_MODES = Object.freeze([
+  { id: 'natural', label: 'Natural Planet' },
+  { id: 'overlay', label: 'Layer Overlay' },
+  { id: 'diagnostic', label: 'Diagnostic' }
+]);
+
+const TEMPLATES = Object.freeze([
+  { id: 'procedural_lifeless', label: 'Procedural Lifeless World' },
+  { id: 'earthlike', label: 'Earthlike Template' },
+  { id: 'water_world', label: 'Water World' },
+  { id: 'ice_world', label: 'Ice World' },
+  { id: 'greenhouse_world', label: 'Greenhouse World' }
+]);
+
+const ARCHETYPES = Object.freeze([
+  { id: 'balanced', label: 'Balanced Primitive' },
+  { id: 'dry', label: 'Dry Basin' },
+  { id: 'icy', label: 'Icy Marginal' },
+  { id: 'oceanic', label: 'Oceanic' },
+  { id: 'greenhouse', label: 'Greenhouse' },
+  { id: 'rugged', label: 'Rugged Highlands' }
+]);
+
+const LAYERS = Object.freeze([
+  { id: 'elevation', label: 'Elevation' },
+  { id: 'water', label: 'Water' },
+  { id: 'temperature', label: 'Temperature' },
+  { id: 'ice', label: 'Ice' },
+  { id: 'habitability', label: 'Habitability' },
+  { id: 'primitiveLife', label: 'Primitive Life' },
+  { id: 'producerMats', label: 'Producer Mats' },
+  { id: 'biodiversityIndex', label: 'Biodiversity Index' },
+  { id: 'ecosystemResilience', label: 'Ecosystem Resilience' },
+  { id: 'stewardshipPressure', label: 'Stewardship Pressure' },
+  { id: 'civilisationSuitability', label: 'Civilisation Suitability' },
+  { id: 'settlements', label: 'Settlements' },
+  { id: 'waterFlow', label: 'Water Flow' },
+  { id: 'cloudCover', label: 'Cloud Cover' },
+  { id: 'lifeViability', label: 'Life Viability' },
+  { id: 'dormantLife', label: 'Dormant Life' },
+  { id: 'primitiveBiomass', label: 'Primitive Biomass' },
+  { id: 'biosphereHealth', label: 'Biosphere Health' },
+  { id: 'extinctionRisk', label: 'Extinction Risk' },
+  { id: 'survivalPressure', label: 'Survival Pressure' },
+  { id: 'nutrientLevel', label: 'Nutrients / Mineral Fertility' },
+  { id: 'heatStress', label: 'Heat Stress' },
+  { id: 'greenhousePressure', label: 'Greenhouse / CO2 Pressure' },
+  { id: 'solarInput', label: 'Solar Input' },
+  { id: 'albedo', label: 'Albedo' },
+  { id: 'humidity', label: 'Humidity' },
+  { id: 'rainfall', label: 'Rainfall' },
+  { id: 'runoff', label: 'Runoff' },
+  { id: 'waterStress', label: 'Water Stress' },
+  { id: 'restorationPriority', label: 'Restoration Priority' },
+  { id: 'ecosystemStress', label: 'Ecosystem Stress' },
+  { id: 'recoveryPotential', label: 'Recovery Potential' },
+  { id: 'disturbancePressure', label: 'Disturbance Pressure' },
+  { id: 'habitatContinuity', label: 'Habitat Continuity' },
+  { id: 'foodSupport', label: 'Food Support' },
+  { id: 'waterAccess', label: 'Water Access' },
+  { id: 'civilisationStress', label: 'Civilisation Stress' },
+  { id: 'collapseRisk', label: 'Collapse Risk' },
+  { id: 'recoveryCapacity', label: 'Recovery Capacity' },
+  { id: 'populationIndex', label: 'Population Index' }
+]);
+
+const TOOLS = Object.freeze([
+  { id: 'inspect', label: 'Inspect World', family: 'Inspect', text: 'Read the selected cell, local physical conditions, habitability, primitive life status, limiting factors, and suggested next action without mutating the world.', preview: 'Valid everywhere. Immediate effect: none. Delayed consequence: none. Layers: all.', best: 'Use first on any unfamiliar cell.' },
+  { id: 'addWater', label: 'Comet Delivery', family: 'Volatiles', text: 'Deliver water and volatile material. Slightly cools the region and can lift later humidity, rainfall, water access, and habitability.', preview: 'Valid where the target is not water-saturated. Watch water, humidity, rainfall, water stress, and habitability.', best: 'Best for dry basins, barren worlds, and overheated lowlands.' },
+  { id: 'iceAsteroid', label: 'Ice Asteroid Strike', family: 'Volatiles', text: 'Deliver frozen volatiles. Stronger cooling and ice effect than Comet Delivery, with a small disturbance penalty.', preview: 'Valid where ice is not saturated and the target is not already too frozen. Watch ice, albedo, temperature, and extinction risk.', best: 'Best for hot, dry, and greenhouse regions.' },
+  { id: 'warm', label: 'Volcanic Outgassing', family: 'Atmosphere', text: 'Release greenhouse gases and minerals. Warms the target, can melt ice, and may improve nutrient availability.', preview: 'Valid where greenhouse, heat, or ice state can still change. Watch greenhouse pressure, temperature, heat stress, ice, and nutrients.', best: 'Best for icy worlds and cold marginal zones.' },
+  { id: 'cool', label: 'Orbital Shade', family: 'Climate', text: 'Reduce local solar heating without adding water. Can reduce heat stress and preserve or expand ice where water exists.', preview: 'Valid where the target is not already near the cold lower bound. Watch temperature, heat stress, ice, and habitability.', best: 'Best for greenhouse worlds and overheated regions.' },
+  { id: 'raiseLand', label: 'Tectonic Uplift', family: 'Terrain', text: 'Raise terrain, expose shallow water into land, cool high terrain slightly, and increase runoff potential.', preview: 'Valid where elevation is below its upper bound. Watch elevation, water, runoff, temperature, and water access.', best: 'Best for ocean worlds and flooded lowlands.' },
+  { id: 'lowerLand', label: 'Tectonic Subsidence', family: 'Terrain', text: 'Lower terrain to form basins, improve water capture, and increase local water share or flood risk.', preview: 'Valid where elevation is above its lower bound. Watch elevation, water capture, runoff, water stress, and flood-prone water share.', best: 'Best for dry worlds and barren high basins.' },
+  { id: 'greenhouseVenting', label: 'Greenhouse Venting', family: 'Atmosphere', text: 'Reduce greenhouse pressure and heat stress. Can cool a region over time and may increase ice risk if overused.', preview: 'Valid where greenhouse pressure or heat stress is not already low. Watch greenhouse pressure, temperature, heat stress, and ice.', best: 'Best for greenhouse worlds and overheated wetlands.' },
+  { id: 'mineralSeeding', label: 'Mineral Seeding', family: 'Fertility', text: 'Add primitive minerals and nutrients. Improves fertility and recovery potential but does not create life by itself.', preview: 'Valid where nutrients are not saturated and water and temperature are not hostile. Watch nutrients, life viability, and habitability.', best: 'Best for barren but physically tolerable zones.' },
+  { id: 'seedMicrobes', label: 'Seed Primitive Life', family: 'Life', text: 'Seed microbial life only where water, temperature, ice, nutrients, stress, and habitability are adequate.', preview: 'Fails clearly in hostile cells. Watch primitive life, dormant life, biomass, biosphere health, and extinction risk.', best: 'Best after water, temperature, stress, and nutrients have been improved.' },
+  { id: 'stabilise', label: 'Planetary Stabilisation', family: 'Stability', text: 'Gently reduce local extremes in temperature, heat stress, water stress, disturbance, and instability. This is a weak nudge, not a magic fix.', preview: 'Valid where meaningful stress or extremes exist. Watch stress, recovery capacity, resilience, and habitability.', best: 'Best for marginal cells after direct terraforming.' },
+  { id: 'seedSettlers', label: 'Seed Early Settlers', family: 'Civilisation', text: 'Seed a small early settlement only where resilient ecosystems, food support, water access, climate, and stability can support it.', preview: 'Fails on lifeless or unsuitable worlds. Watch civilisation suitability, food support, water access, stress, settlements, and collapse risk.', best: 'Use after a resilient living planet has emerged, not as a shortcut to life or modern civilisation.' }
+]);
+
+const PROBES = Object.freeze([
+  { id: 'architecture_sanity', label: 'Architecture sanity probe' },
+  { id: 'worker_boot', label: 'Worker boot probe' },
+  { id: 'deterministic_generation', label: 'Deterministic generation probe' },
+  { id: 'snapshot_restore', label: 'Worker snapshot/restore probe' },
+  { id: 'procedural_lifeless', label: 'Procedural lifeless world probe' },
+  { id: 'earthlike_template', label: 'Earthlike template probe' },
+  { id: 'ecosystem_growth', label: 'Ecosystem growth probe' },
+  { id: 'civilisation_gate', label: 'Civilisation emergence gate probe' },
+  { id: 'intervention_parity', label: 'Intervention parity probe' },
+  { id: 'no_dom_in_worker', label: 'No UI access in worker probe' },
+  { id: 'render_data_finite', label: 'Render-data finite/bounded probe' }
+]);
+
+function makeEnvelope(type, payload = {}) {
+  return { type, payload };
+}
+
+
+/* ============================================================
+   Utility math
+   Source section: util/math.js
+   Compacted for Engine v2 0.1.9.
+   ============================================================ */
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function clamp01(value) {
+  return clamp(value, 0, 1);
+}
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function smoothstep(edge0, edge1, x) {
+  const t = clamp01((x - edge0) / Math.max(1e-9, edge1 - edge0));
+  return t * t * (3 - 2 * t);
+}
+
+function weightedAverage(values, weights) {
+  let num = 0;
+  let den = 0;
+  for (let i = 0; i < values.length; i += 1) {
+    const v = values[i];
+    const w = weights[i];
+    if (Number.isFinite(v) && Number.isFinite(w) && w > 0) {
+      num += v * w;
+      den += w;
+    }
+  }
+  return den > 0 ? num / den : 0;
+}
+
+function toCelsius(indexValue) {
+  return -30 + indexValue * 75;
+}
+
+function finite01(value) {
+  return Number.isFinite(value) ? clamp01(value) : 0;
+}
+
+
+/* ============================================================
+   UI references and renderers
+   Source section: ui.js
+   Compacted for Engine v2 0.1.9.
+   ============================================================ */
+
+
+function getUi() {
+  return {
+    buildLabel: byId('build-label'),
+    workerStatus: byId('worker-status'),
+    template: byId('world-template'),
+    archetype: byId('world-archetype'),
+    seed: byId('seed-input'),
+    generate: byId('generate-button'),
+    reset: byId('reset-button'),
+    step: byId('step-button'),
+    runPause: byId('run-pause-button'),
+    advanceYears: byId('advance-years-button'),
+    advanceYearsInput: byId('advance-years-input'),
+    speed: byId('speed-select'),
+    tool: byId('tool-select'),
+    toolStrength: byId('tool-strength'),
+    toolRadius: byId('tool-radius'),
+    applyTool: byId('apply-tool-button'),
+    visualMode: byId('visual-mode'),
+    layer: byId('layer-select'),
+    overlayOpacity: byId('overlay-opacity'),
+    clouds: byId('cloud-toggle'),
+    rotateLeft: byId('rotate-left'),
+    rotateRight: byId('rotate-right'),
+    resetView: byId('reset-view'),
+    canvas: byId('planet-canvas'),
+    stats: byId('stats-panel'),
+    selected: byId('selected-panel'),
+    trends: byId('trends-panel'),
+    diagnostics: byId('diagnostics-panel'),
+    probeSelect: byId('probe-select'),
+    runProbe: byId('run-probe-button'),
+    runAllProbes: byId('run-all-probes-button'),
+    probes: byId('probe-output'),
+    ledger: byId('migration-ledger'),
+    eventLog: byId('event-log'),
+    statusLine: byId('status-line'),
+    summaryLine: byId('summary-line'),
+    trendsCard: byId('trends-card'),
+    diagnosticsCard: byId('diagnostics-card'),
+    bottomPanels: byId('advanced-bottom-panels'),
+    ledgerCard: byId('migration-ledger-card'),
+    eventLogCard: byId('event-log-card'),
+    toggleTrends: byId('toggle-trends'),
+    toggleDiagnostics: byId('toggle-diagnostics'),
+    toggleLedger: byId('toggle-ledger'),
+    toggleEventLog: byId('toggle-event-log'),
+    modeBadge: byId('mode-badge'),
+    selectedToolMini: byId('selected-tool-mini'),
+    toolButtonGrid: byId('tool-button-grid'),
+    toolRadiusValue: byId('tool-radius-value'),
+    toolStrengthValue: byId('tool-strength-value'),
+    toolDescription: byId('tool-description'),
+    toolPreview: byId('tool-preview'),
+    toolGuidance: byId('tool-guidance'),
+    vitalYear: byId('vital-year'),
+    vitalTick: byId('vital-tick'),
+    vitalWater: byId('vital-water'),
+    vitalIce: byId('vital-ice'),
+    vitalTemp: byId('vital-temp'),
+    vitalHabit: byId('vital-habit'),
+    vitalLife: byId('vital-life'),
+    vitalSettlement: byId('vital-settlement'),
+    vitalCollapse: byId('vital-collapse')
+  };
+}
+
+function initialiseUi(ui) {
+  ui.buildLabel.textContent = BUILD_LABEL;
+  fillSelect(ui.template, TEMPLATES);
+  fillSelect(ui.archetype, ARCHETYPES);
+  fillSelect(ui.visualMode, VISUAL_MODES);
+  fillSelect(ui.layer, LAYERS);
+  fillSelect(ui.tool, TOOLS);
+  fillSelect(ui.probeSelect, PROBES);
+  renderToolButtons(ui);
+  updateToolUiReadouts(ui);
+  updateVisualReadouts(ui);
+  if (ui.applyTool) ui.applyTool.disabled = true;
+  ui.seed.value = 'ENGINE-V2-001';
+  ui.ledger.innerHTML = migrationLedgerHtml();
+}
+
+function renderSummary(ui, summary) {
+  const warnings = summary.warnings && summary.warnings.length ? summary.warnings : ['None'];
+  if (ui.workerStatus && ui.workerStatus.textContent === 'initialising') ui.workerStatus.textContent = summary.diagnostics?.workerStatus || 'READY';
+  ui.summaryLine.textContent = `${summary.template} | ${summary.archetype} | year ${summary.year} | cells ${summary.cellCount}`;
+  setTextIfNode(ui.vitalYear, summary.year);
+  setTextIfNode(ui.vitalTick, summary.stepCount ?? 0);
+  setTextIfNode(ui.vitalWater, formatPct(summary.waterShare));
+  setTextIfNode(ui.vitalIce, formatPct(summary.iceShare));
+  setTextIfNode(ui.vitalTemp, `${formatNum(summary.averageTemperatureC, 1)} °C`);
+  setTextIfNode(ui.vitalHabit, formatPct(summary.habitableShare));
+  setTextIfNode(ui.vitalLife, formatNum(summary.primitiveLifeMean, 3));
+  setTextIfNode(ui.vitalSettlement, formatPct(summary.settlementShare));
+  setTextIfNode(ui.vitalCollapse, formatNum(summary.collapseRiskMean, 3));
+  ui.stats.innerHTML = `
+    <div class="metric"><span>Year</span><strong>${summary.year}</strong></div>
+    <div class="metric"><span>Average temperature</span><strong>${formatNum(summary.averageTemperatureC, 1)} °C</strong></div>
+    <div class="metric"><span>Water share</span><strong>${formatPct(summary.waterShare)}</strong></div>
+    <div class="metric"><span>Ice share</span><strong>${formatPct(summary.iceShare)}</strong></div>
+    <div class="metric"><span>Habitable share</span><strong>${formatPct(summary.habitableShare)}</strong></div>
+    <div class="metric"><span>Primitive life mean</span><strong>${formatNum(summary.primitiveLifeMean, 3)}</strong></div>
+    <div class="metric"><span>Life viability</span><strong>${formatNum(summary.lifeViabilityMean, 3)}</strong></div>
+    <div class="metric"><span>Biosphere health</span><strong>${formatNum(summary.biosphereHealthMean, 3)}</strong></div>
+    <div class="metric"><span>Extinction risk</span><strong>${formatNum(summary.extinctionRiskMean, 3)}</strong></div>
+    <div class="metric"><span>Nutrients</span><strong>${formatNum(summary.nutrientMean, 3)}</strong></div>
+    <div class="metric"><span>Greenhouse pressure</span><strong>${formatNum(summary.greenhousePressureMean, 3)}</strong></div>
+    <div class="metric"><span>Settlement share</span><strong>${formatPct(summary.settlementShare)}</strong></div>
+    <div class="metric"><span>Collapse risk</span><strong>${formatNum(summary.collapseRiskMean, 3)}</strong></div>
+    <div class="metric wide"><span>Last Action</span><strong>${escapeHtml(summary.lastAction)}</strong></div>
+    <div class="metric wide"><span>What Changed</span><strong>${escapeHtml(summary.lastChange || 'No change yet.')}</strong></div>
+    <div class="metric wide"><span>Watch Next</span><strong>${escapeHtml(summary.lastWatch || 'Watch core layers.')}</strong></div>
+    <div class="metric wide"><span>Warnings</span><strong>${warnings.map(escapeHtml).join('<br>')}</strong></div>
+  `;
+}
+
+
+function renderSelected(ui, selected) {
+  if (!selected || selected.cellId < 0) {
+    if (ui.applyTool) ui.applyTool.disabled = true;
+    ui.selected.innerHTML = '<p>No cell selected. Click the planet, or select Inspect World and click a visible cell.</p>';
+    return;
+  }
+  if (ui.applyTool) ui.applyTool.disabled = false;
+  ui.selected.innerHTML = `
+    <div class="metric"><span>Cell</span><strong>${selected.cellId}</strong></div>
+    <div class="metric"><span>Latitude</span><strong>${formatNum(selected.latitude, 1)}°</strong></div>
+    <div class="metric"><span>Longitude</span><strong>${formatNum(selected.longitude, 1)}°</strong></div>
+    <div class="metric"><span>Neighbours</span><strong>${selected.neighbours.join(', ')}</strong></div>
+    <div class="metric"><span>Elevation</span><strong>${formatNum(selected.elevation, 3)}</strong></div>
+    <div class="metric"><span>Water</span><strong>${formatNum(selected.water, 3)}</strong></div>
+    <div class="metric"><span>Temperature</span><strong>${formatNum(selected.temperatureC, 1)} °C</strong></div>
+    <div class="metric"><span>Ice</span><strong>${formatNum(selected.ice, 3)}</strong></div>
+    <div class="metric"><span>Habitability</span><strong>${formatNum(selected.habitability, 3)}</strong></div>
+    <div class="metric"><span>Primitive life</span><strong>${formatNum(selected.primitiveLife, 3)}</strong></div>
+    <div class="metric"><span>Dormant life</span><strong>${formatNum(selected.dormantLife, 3)}</strong></div>
+    <div class="metric"><span>Life viability</span><strong>${formatNum(selected.lifeViability, 3)}</strong></div>
+    <div class="metric"><span>Primitive biomass</span><strong>${formatNum(selected.primitiveBiomass, 3)}</strong></div>
+    <div class="metric"><span>Biosphere health</span><strong>${formatNum(selected.biosphereHealth, 3)}</strong></div>
+    <div class="metric"><span>Extinction risk</span><strong>${formatNum(selected.extinctionRisk, 3)}</strong></div>
+    <div class="metric"><span>Survival pressure</span><strong>${formatNum(selected.survivalPressure, 3)}</strong></div>
+    <div class="metric"><span>Nutrients</span><strong>${formatNum(selected.nutrientLevel, 3)}</strong></div>
+    <div class="metric"><span>Heat stress</span><strong>${formatNum(selected.heatStress, 3)}</strong></div>
+    <div class="metric"><span>Water stress</span><strong>${formatNum(selected.waterStress, 3)}</strong></div>
+    <div class="metric"><span>Greenhouse</span><strong>${formatNum(selected.greenhousePressure, 3)}</strong></div>
+    <div class="metric"><span>Albedo</span><strong>${formatNum(selected.albedo, 3)}</strong></div>
+    <div class="metric"><span>Producer mats</span><strong>${formatNum(selected.producerMats, 3)}</strong></div>
+    <div class="metric"><span>Biodiversity</span><strong>${formatNum(selected.biodiversityIndex, 3)}</strong></div>
+    <div class="metric"><span>Stewardship</span><strong>${formatNum(selected.stewardshipPressure, 3)}</strong></div>
+    <div class="metric"><span>Civ suitability</span><strong>${formatNum(selected.civilisationSuitability, 3)}</strong></div>
+    <div class="metric"><span>Settlements</span><strong>${formatNum(selected.settlements, 3)}</strong></div>
+    <div class="metric wide"><span>Life status</span><strong>${escapeHtml(selected.lifeStatus)}</strong></div>
+    <div class="metric wide"><span>Limiting factor</span><strong>${escapeHtml(selected.limitingFactor)}</strong></div>
+  `;
+}
+
+function renderDiagnostics(ui, diagnostics, mainMetrics) {
+  const data = diagnostics || {};
+  ui.diagnostics.innerHTML = `
+    <div class="metric"><span>Worker status</span><strong>${escapeHtml(data.workerStatus || 'unknown')}</strong></div>
+    <div class="metric"><span>Worker tick</span><strong>${formatNum(data.lastWorkerTickMs, 2)} ms</strong></div>
+    <div class="metric"><span>Generation</span><strong>${formatNum(data.lastGenerationMs, 2)} ms</strong></div>
+    <div class="metric"><span>Tool application</span><strong>${formatNum(data.lastToolApplicationMs, 2)} ms</strong></div>
+    <div class="metric"><span>Probe</span><strong>${formatNum(data.lastProbeMs, 2)} ms</strong></div>
+    <div class="metric"><span>Render-data build</span><strong>${formatNum(data.lastRenderDataBuildMs, 2)} ms</strong></div>
+    <div class="metric"><span>Main render</span><strong>${formatNum(mainMetrics.lastRenderMs, 2)} ms</strong></div>
+    <div class="metric"><span>DOM update</span><strong>${formatNum(mainMetrics.lastDomMs, 2)} ms</strong></div>
+    <div class="metric"><span>Render dirty</span><strong>${String(data.renderDirty)}</strong></div>
+    <div class="metric"><span>Cells</span><strong>${data.cellCount || 0}</strong></div>
+    <div class="metric"><span>Neighbour links</span><strong>${data.neighbourLinks || 0}</strong></div>
+    <div class="metric"><span>Last transfer</span><strong>${formatBytes(data.bytesTransferredLastRenderUpdate || 0)}</strong></div>
+    <div class="metric"><span>Worker messages</span><strong>${data.workerMessageCount || 0}</strong></div>
+    <div class="metric wide"><span>Last worker error</span><strong>${escapeHtml(data.lastWorkerError || 'None')}</strong></div>
+  `;
+}
+
+function renderProbeResult(ui, payload) {
+  if (!payload) return;
+  if (payload.results) {
+    ui.probes.innerHTML = payload.results.map(renderProbeLine).join('');
+  } else {
+    ui.probes.innerHTML = renderProbeLine(payload) + ui.probes.innerHTML;
+  }
+}
+
+function addEvent(ui, text) {
+  const time = new Date().toLocaleTimeString();
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.textContent = `${time} | ${text}`;
+  ui.eventLog.prepend(entry);
+  while (ui.eventLog.children.length > 40) ui.eventLog.removeChild(ui.eventLog.lastChild);
+}
+
+function setStatus(ui, text) {
+  ui.statusLine.textContent = text;
+}
+
+function fillSelect(select, items) {
+  if (!select) return;
+  select.innerHTML = '';
+  for (const item of items) {
+    const option = document.createElement('option');
+    option.value = item.id;
+    option.textContent = item.label;
+    select.appendChild(option);
+  }
+}
+
+function toolIcon(toolId) {
+  const icons = {
+    inspect: '🔎',
+    addWater: '☄️',
+    iceAsteroid: '🧊',
+    warm: '🌋',
+    cool: '🛰️',
+    raiseLand: '⛰️',
+    lowerLand: '🕳️',
+    greenhouseVenting: '🌬️',
+    mineralSeeding: '💎',
+    seedMicrobes: '🧬',
+    stabilise: '✨',
+    seedSettlers: '🏕️'
+  };
+  return icons[toolId] || '•';
+}
+
+function renderToolButtons(ui) {
+  if (!ui.toolButtonGrid) return;
+  ui.toolButtonGrid.innerHTML = '';
+  for (const tool of TOOLS) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.tool = tool.id;
+    button.title = `${tool.label}: ${tool.text || ''}`;
+    button.innerHTML = `<span class="toolIcon" aria-hidden="true">${toolIcon(tool.id)}</span><span>${escapeHtml(tool.label)}</span>`;
+    button.addEventListener('click', () => {
+      ui.tool.value = tool.id;
+      updateToolUiReadouts(ui);
+    });
+    ui.toolButtonGrid.appendChild(button);
+  }
+}
+
+function updateToolUiReadouts(ui) {
+  const selected = TOOLS.find((tool) => tool.id === ui.tool.value) || TOOLS[0];
+  if (ui.selectedToolMini && selected) ui.selectedToolMini.textContent = selected.label;
+  if (ui.toolDescription && selected) ui.toolDescription.textContent = selected.text || selected.label;
+  if (ui.toolPreview && selected) ui.toolPreview.textContent = selected.preview || '';
+  if (ui.toolGuidance && selected) ui.toolGuidance.textContent = `Best use: ${selected.best || 'use where valid'}`;
+  if (ui.toolRadiusValue) ui.toolRadiusValue.textContent = String(Number(ui.toolRadius.value || 0));
+  if (ui.toolStrengthValue) ui.toolStrengthValue.textContent = Number(ui.toolStrength.value || 0).toFixed(1);
+  if (ui.toolButtonGrid) {
+    for (const button of ui.toolButtonGrid.querySelectorAll('button')) {
+      button.classList.toggle('active', button.dataset.tool === ui.tool.value);
+    }
+  }
+}
+
+function updateVisualReadouts(ui) {
+  if (ui.modeBadge) {
+    const mode = VISUAL_MODES.find((item) => item.id === ui.visualMode.value)?.label || 'Natural Planet';
+    const layer = LAYERS.find((item) => item.id === ui.layer.value)?.label || ui.layer.value;
+    ui.modeBadge.textContent = ui.visualMode.value === 'natural' ? mode : `${mode} - ${layer}`;
+  }
+  const overlayLabel = ui.overlayOpacity?.parentElement?.querySelector('.kpi');
+  if (overlayLabel) overlayLabel.textContent = `${Math.round(Number(ui.overlayOpacity.value || 0) * 100)}%`;
+}
+
+function setTextIfNode(node, value) {
+  if (node) node.textContent = String(value);
+}
+
+function byId(id) {
+  return document.getElementById(id);
+}
+
+function formatNum(value, digits = 2) {
+  return Number.isFinite(value) ? Number(value).toFixed(digits) : 'n/a';
+}
+
+function formatPct(value) {
+  return Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : 'n/a';
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;' }[char]));
+}
+
+function renderProbeLine(item) {
+  const statusClass = item.status === 'pass' ? 'pass' : item.status === 'warn' ? 'warn' : 'fail';
+  return `<div class="probe ${statusClass}"><strong>${escapeHtml(item.status || 'unknown').toUpperCase()}</strong> ${escapeHtml(item.label || item.id)}<br><span>${escapeHtml(item.detail || '')}</span></div>`;
+}
+
+function migrationLedgerHtml() {
+  return `
+    <h3>Migration ledger</h3>
+    <p><strong>Status:</strong> Engine v2 0.1.9 preserves Classic v1 intervention parity while consolidating the main thread into index.html and preserving Worker-owned state in a two-file static deployment.</p>
+    <div class="ledger-grid">
+      <section><h4>Ported from Classic</h4><p>Generate, Reset, Step, Run/Pause, Advance Years, seed, template and archetype controls, all 12 Classic v1 intervention tools, major layers, selected-cell inspection, trends, probes, and diagnostics.</p></section>
+      <section><h4>Simplified</h4><p>Planet generation, climate, hydrology, primitive life, ecosystem state, stewardship, and early settlements are compact deterministic approximations.</p></section>
+      <section><h4>Stubbed for future migration</h4><p>Drainage basins, lake overflow, erosion, sediment, ocean heat transport, richer probes, richer hydrology, and deeper ecosystem transitions.</p></section>
+      <section><h4>Intentionally deferred</h4><p>Full Earth matching, all Classic panels, save/load, scenarios, advanced graphics backends, imported data, and asset bundles.</p></section>
+      <section><h4>Known behavioural differences</h4><p>The proof uses a compact icosphere triangle-face mesh and worker-owned state. It now prioritises Classic visual parity while still preserving clean Worker boundaries.</p></section>
+    </div>
+  `;
+}
+
+
+/* ============================================================
+   Canvas 2D renderer
+   Source section: renderer2d.js
+   Compacted for Engine v2 0.1.9.
+   ============================================================ */
+
+
+function createRenderer(canvas) {
+  const ctx = canvas.getContext('2d');
+  let data = null;
+  let rotation = 0.0;
+  let tilt = 0.0;
+  let lastProjection = [];
+  let lastRenderMs = 0;
+  let viewport = { cssWidth: 0, cssHeight: 0, width: 0, height: 0, scale: 1, cx: 0, cy: 0, radius: 0 };
+
+  function setRenderData(nextData) {
+    data = nextData;
+  }
+
+  function rotate(delta) {
+    rotation += delta;
+  }
+
+  function resetView() {
+    rotation = 0;
+    tilt = 0;
+  }
+
+  function updateViewport(force = false) {
+    const rect = canvas.getBoundingClientRect();
+    const fallback = canvas.parentElement ? canvas.parentElement.getBoundingClientRect() : rect;
+    const cssWidth = Math.max(320, Math.floor((rect.width || fallback.width || 640)));
+    const cssHeight = Math.max(260, Math.floor((rect.height || fallback.height || 520)));
+    const scale = Math.max(1, Math.min(2, globalThis.devicePixelRatio || 1));
+    const width = Math.max(320, Math.floor(cssWidth * scale));
+    const height = Math.max(260, Math.floor(cssHeight * scale));
+    const changed = force || Math.abs(cssWidth - viewport.cssWidth) > 1 || Math.abs(cssHeight - viewport.cssHeight) > 1 || viewport.scale !== scale;
+    if (!changed) return viewport;
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+    const limiting = Math.max(1, Math.min(width, height));
+    const padding = Math.max(24 * scale, limiting * 0.070);
+    const radius = Math.max(36 * scale, limiting * 0.5 - padding);
+    viewport = { cssWidth, cssHeight, width, height, scale, cx: width * 0.5, cy: height * 0.5, radius };
+    return viewport;
+  }
+
+  function render(settings = {}) {
+    const start = performance.now();
+    const view = updateViewport(false);
+    ctx.clearRect(0, 0, view.width, view.height);
+    drawBackground(ctx, view.width, view.height);
+    lastProjection = [];
+
+    if (!data) {
+      drawEmpty(ctx, view.width, view.height);
+      lastRenderMs = performance.now() - start;
+      return lastRenderMs;
+    }
+
+    const mode = settings.visualMode || 'natural';
+    const layer = settings.layer || 'elevation';
+    const overlayOpacity = clamp01(Number(settings.overlayOpacity ?? 0.65));
+    const cloudsEnabled = settings.clouds !== false;
+    const { cx, cy, radius } = view;
+
+    drawPlanetDisc(ctx, cx, cy, radius);
+    drawCells(ctx, cx, cy, radius, 'natural', layer, 1, cloudsEnabled);
+    if (mode === 'overlay') {
+      drawCells(ctx, cx, cy, radius, 'layer', layer, overlayOpacity, cloudsEnabled);
+    } else if (mode === 'diagnostic') {
+      drawCells(ctx, cx, cy, radius, 'diagnostic', layer, 1, cloudsEnabled);
+    }
+    drawAtmosphere(ctx, cx, cy, radius);
+    drawSelectedCell(ctx, lastProjection, radius, settings.selectedCell ?? data.selectedCell, settings.hoverCell, Number(settings.toolRadius ?? 1));
+
+    lastRenderMs = performance.now() - start;
+    return lastRenderMs;
+  }
+
+  function drawCells(context, cx, cy, radius, pass, layer, alpha, cloudsEnabled) {
+    context.save();
+    context.globalAlpha = alpha;
+    if (pass === 'diagnostic') context.lineWidth = Math.max(0.5, radius / 420);
+    const order = [];
+    const cosR = Math.cos(rotation);
+    const sinR = Math.sin(rotation);
+    const cosT = Math.cos(tilt);
+    const sinT = Math.sin(tilt);
+
+    for (let i = 0; i < data.count; i += 1) {
+      const c = projectVector(data.centerX[i], data.centerY[i], data.centerZ[i], cosR, sinR, cosT, sinT);
+      if (c.depth <= -0.04) continue;
+      order.push([i, c.depth]);
+    }
+    order.sort((a, b) => a[1] - b[1]);
+
+    for (const [i] of order) {
+      const p0 = projectVector(data.triangleX[i * 3], data.triangleY[i * 3], data.triangleZ[i * 3], cosR, sinR, cosT, sinT);
+      const p1 = projectVector(data.triangleX[i * 3 + 1], data.triangleY[i * 3 + 1], data.triangleZ[i * 3 + 1], cosR, sinR, cosT, sinT);
+      const p2 = projectVector(data.triangleX[i * 3 + 2], data.triangleY[i * 3 + 2], data.triangleZ[i * 3 + 2], cosR, sinR, cosT, sinT);
+      if (p0.depth < -0.20 || p1.depth < -0.20 || p2.depth < -0.20) continue;
+      const centre = projectVector(data.centerX[i], data.centerY[i], data.centerZ[i], cosR, sinR, cosT, sinT);
+      const light = clamp01(0.52 + centre.depth * 0.42);
+      const x0 = cx + p0.x * radius;
+      const y0 = cy + p0.y * radius;
+      const x1 = cx + p1.x * radius;
+      const y1 = cy + p1.y * radius;
+      const x2 = cx + p2.x * radius;
+      const y2 = cy + p2.y * radius;
+      context.beginPath();
+      context.moveTo(x0, y0);
+      context.lineTo(x1, y1);
+      context.lineTo(x2, y2);
+      context.closePath();
+      context.fillStyle = pass === 'natural' ? naturalColor(data, i, light, cloudsEnabled) : layerColor(data, i, layer, light, pass === 'diagnostic');
+      context.fill();
+      if (pass === 'diagnostic') {
+        context.strokeStyle = 'rgba(255,255,255,0.20)';
+        context.stroke();
+      }
+      lastProjection[i] = { x: cx + centre.x * radius, y: cy + centre.y * radius, depth: centre.depth };
+    }
+    context.restore();
+  }
+
+  function pick(clientX, clientY) {
+    if (!data) return -1;
+    const rect = canvas.getBoundingClientRect();
+    const view = updateViewport(false);
+    const scaleX = view.width / Math.max(1, rect.width);
+    const scaleY = view.height / Math.max(1, rect.height);
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
+    let best = -1;
+    let bestDist = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < lastProjection.length; i += 1) {
+      const p = lastProjection[i];
+      if (!p || p.depth <= -0.04) continue;
+      const dx = p.x - x;
+      const dy = p.y - y;
+      const d = dx * dx + dy * dy;
+      if (d < bestDist) {
+        bestDist = d;
+        best = i;
+      }
+    }
+    return bestDist < Math.max(160, (canvas.width * 0.020) ** 2) ? best : -1;
+  }
+
+  function getLastRenderMs() {
+    return lastRenderMs;
+  }
+
+  return { setRenderData, render, pick, rotate, resetView, getLastRenderMs, updateViewport };
+}
+
+function projectVector(x, y, z, cosR, sinR, cosT, sinT) {
+  const xr = x * cosR + z * sinR;
+  const zr = -x * sinR + z * cosR;
+  const yt = y * cosT - xr * sinT;
+  const depth = xr * cosT + y * sinT;
+  return { x: zr, y: -yt, depth };
+}
+
+function drawBackground(ctx, width, height) {
+  const g = ctx.createRadialGradient(width * 0.5, height * 0.5, 0, width * 0.5, height * 0.5, Math.max(width, height) * 0.7);
+  g.addColorStop(0, '#122031');
+  g.addColorStop(1, '#05080d');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, width, height);
+}
+
+function drawEmpty(ctx, width, height) {
+  ctx.fillStyle = 'rgba(255,255,255,0.70)';
+  ctx.font = `${Math.max(14, width * 0.018)}px system-ui`;
+  ctx.textAlign = 'center';
+  ctx.fillText('Waiting for worker render data', width / 2, height / 2);
+}
+
+function drawPlanetDisc(ctx, cx, cy, radius) {
+  const g = ctx.createRadialGradient(cx - radius * 0.25, cy - radius * 0.25, radius * 0.1, cx, cy, radius);
+  g.addColorStop(0, '#26394a');
+  g.addColorStop(1, '#05090f');
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.fillStyle = g;
+  ctx.fill();
+}
+
+function drawAtmosphere(ctx, cx, cy, radius) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius * 1.01, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(120,185,255,0.28)';
+  ctx.lineWidth = Math.max(2, radius * 0.015);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius * 1.04, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(160,215,255,0.08)';
+  ctx.lineWidth = Math.max(8, radius * 0.035);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawSelectedCell(ctx, projection, radius, selectedCell, hoverCell, toolRadius) {
+  if (selectedCell >= 0 && projection[selectedCell] && projection[selectedCell].depth > -0.05) {
+    const p = projection[selectedCell];
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+    ctx.lineWidth = Math.max(1.5, radius * 0.008);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, Math.max(5, radius * 0.025), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+  if (hoverCell >= 0 && projection[hoverCell] && projection[hoverCell].depth > -0.05) {
+    const p = projection[hoverCell];
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,215,120,0.65)';
+    ctx.lineWidth = Math.max(1, radius * 0.006);
+    ctx.setLineDash([6, 5]);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, Math.max(8, radius * (0.025 + toolRadius * 0.018)), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function naturalColor(data, i, light, cloudsEnabled) {
+  const water = data.water[i];
+  const ice = data.ice[i];
+  const life = data.primitiveLife[i];
+  const mats = data.producerMats[i];
+  const elev = data.elevation[i];
+  const temp = data.temperature[i];
+  const settlements = data.settlements[i];
+  const clouds = cloudsEnabled ? data.cloudCover[i] : 0;
+  let r;
+  let g;
+  let b;
+  if (water > 0.45) {
+    r = lerp(18, 36, water);
+    g = lerp(62, 118, water);
+    b = lerp(110, 190, water);
+  } else {
+    const dry = clamp01(1 - data.habitability[i]);
+    r = lerp(90, 178, dry) + elev * 40;
+    g = lerp(108, 120, dry) + life * 80 + mats * 40;
+    b = lerp(72, 58, dry);
+  }
+  if (life > 0.03) {
+    r = lerp(r, 50, clamp01(life * 0.8));
+    g = lerp(g, 150, clamp01(life * 0.9));
+    b = lerp(b, 76, clamp01(life * 0.6));
+  }
+  if (ice > 0.20) {
+    const a = clamp01(ice);
+    r = lerp(r, 220, a);
+    g = lerp(g, 236, a);
+    b = lerp(b, 245, a);
+  }
+  if (temp > 0.74 && water < 0.40) {
+    r = lerp(r, 218, 0.25);
+    g = lerp(g, 110, 0.20);
+    b = lerp(b, 50, 0.20);
+  }
+  if (settlements > 0.04) {
+    r = lerp(r, 255, settlements * 0.45);
+    g = lerp(g, 205, settlements * 0.25);
+    b = lerp(b, 92, settlements * 0.20);
+  }
+  if (clouds > 0.12) {
+    const a = clamp01(clouds * 0.45);
+    r = lerp(r, 232, a);
+    g = lerp(g, 236, a);
+    b = lerp(b, 238, a);
+  }
+  return rgb(r * light, g * light, b * light);
+}
+
+function layerColor(data, i, layer, light, diagnostic) {
+  const v = clamp01(data[layer]?.[i] ?? 0);
+  let color;
+  if (layer === 'water' || layer === 'waterFlow' || layer === 'cloudCover' || layer === 'humidity' || layer === 'rainfall' || layer === 'runoff' || layer === 'waterAccess') color = ramp(v, [15, 34, 66], [62, 162, 225]);
+  else if (layer === 'temperature') color = tempRamp(v);
+  else if (layer === 'ice' || layer === 'albedo') color = ramp(v, [35, 70, 92], [236, 248, 255]);
+  else if (layer === 'primitiveLife' || layer === 'producerMats' || layer === 'habitability' || layer === 'biodiversityIndex' || layer === 'ecosystemResilience' || layer === 'lifeViability' || layer === 'primitiveBiomass' || layer === 'biosphereHealth' || layer === 'foodSupport' || layer === 'recoveryCapacity') color = ramp(v, [38, 40, 34], [60, 190, 95]);
+  else if (layer === 'dormantLife') color = ramp(v, [38, 38, 72], [126, 160, 232]);
+  else if (layer === 'extinctionRisk' || layer === 'survivalPressure' || layer === 'heatStress' || layer === 'waterStress' || layer === 'ecosystemStress' || layer === 'disturbancePressure' || layer === 'civilisationStress' || layer === 'collapseRisk') color = ramp(v, [52, 38, 32], [230, 88, 58]);
+  else if (layer === 'stewardshipPressure' || layer === 'restorationPriority' || layer === 'recoveryPotential' || layer === 'habitatContinuity') color = ramp(v, [50, 42, 68], [170, 225, 120]);
+  else if (layer === 'civilisationSuitability' || layer === 'settlements' || layer === 'populationIndex') color = ramp(v, [32, 32, 42], [255, 196, 76]);
+  else if (layer === 'greenhousePressure') color = ramp(v, [48, 62, 82], [224, 106, 52]);
+  else if (layer === 'nutrientLevel') color = ramp(v, [70, 58, 36], [184, 220, 92]);
+  else if (layer === 'solarInput') color = ramp(v, [30, 42, 70], [255, 216, 95]);
+  else color = ramp(v, [42, 36, 34], [216, 224, 160]);
+  const multiplier = diagnostic ? 1 : light;
+  return rgb(color[0] * multiplier, color[1] * multiplier, color[2] * multiplier);
+}
+
+function ramp(v, a, b) {
+  return [lerp(a[0], b[0], v), lerp(a[1], b[1], v), lerp(a[2], b[2], v)];
+}
+
+function tempRamp(v) {
+  if (v < 0.5) return ramp(v / 0.5, [42, 88, 180], [222, 220, 170]);
+  return ramp((v - 0.5) / 0.5, [222, 220, 170], [210, 64, 42]);
+}
+
+function rgb(r, g, b) {
+  return `rgb(${Math.round(clamp01(r / 255) * 255)},${Math.round(clamp01(g / 255) * 255)},${Math.round(clamp01(b / 255) * 255)})`;
+}
+
+
+/* ============================================================
+   Controls
+   Source section: controls.js
+   Compacted for Engine v2 0.1.9.
+   ============================================================ */
+
+
+function bindControls(ui, actions) {
+  ui.generate.addEventListener('click', () => actions.command(COMMANDS.GENERATE, collectGenerationOptions(ui)));
+  ui.reset.addEventListener('click', () => actions.command(COMMANDS.RESET, {}));
+  ui.step.addEventListener('click', () => actions.command(COMMANDS.STEP, {}));
+  ui.runPause.addEventListener('click', () => actions.toggleRun());
+  ui.advanceYears.addEventListener('click', () => actions.command(COMMANDS.ADVANCE_YEARS, { years: Number(ui.advanceYearsInput.value || 1) }));
+  ui.speed.addEventListener('change', () => actions.command(COMMANDS.SET_SPEED, { speed: Number(ui.speed.value) }));
+  ui.template.addEventListener('change', () => actions.command(COMMANDS.SET_TEMPLATE, { template: ui.template.value }));
+  ui.archetype.addEventListener('change', () => actions.command(COMMANDS.SET_ARCHETYPE, { archetype: ui.archetype.value }));
+  ui.applyTool.addEventListener('click', () => actions.applyToolToSelected());
+  ui.runProbe.addEventListener('click', () => actions.command(COMMANDS.RUN_PROBE, { probeId: ui.probeSelect.value }));
+  ui.runAllProbes.addEventListener('click', () => actions.command(COMMANDS.RUN_ALL_PROBES, {}));
+  bindPanelToggles(ui);
+
+  ui.tool.addEventListener('change', () => updateToolUiReadouts(ui));
+  ui.visualMode.addEventListener('change', () => { updateVisualReadouts(ui); actions.redraw(); });
+  ui.layer.addEventListener('change', () => { updateVisualReadouts(ui); actions.redraw(); });
+  ui.overlayOpacity.addEventListener('input', () => { updateVisualReadouts(ui); actions.redraw(); });
+  ui.clouds.addEventListener('change', () => actions.redraw());
+  ui.toolRadius.addEventListener('input', () => { updateToolUiReadouts(ui); actions.redraw(); });
+  ui.toolStrength.addEventListener('input', () => updateToolUiReadouts(ui));
+  ui.rotateLeft.addEventListener('click', () => { actions.rotate(-0.22); actions.redraw(); });
+  ui.rotateRight.addEventListener('click', () => { actions.rotate(0.22); actions.redraw(); });
+  ui.resetView.addEventListener('click', () => { actions.resetView(); actions.redraw(); });
+
+  let dragging = false;
+  let lastX = 0;
+  let downX = 0;
+  let downY = 0;
+  let moved = false;
+  ui.canvas.addEventListener('pointerdown', (event) => {
+    dragging = true;
+    lastX = event.clientX;
+    downX = event.clientX;
+    downY = event.clientY;
+    moved = false;
+    ui.canvas.setPointerCapture(event.pointerId);
+  });
+  ui.canvas.addEventListener('pointermove', (event) => {
+    if (dragging && event.buttons) {
+      moved = moved || Math.abs(event.clientX - downX) + Math.abs(event.clientY - downY) > 6;
+      const dx = event.clientX - lastX;
+      if (Math.abs(dx) > 1) {
+        actions.rotate(dx * 0.006);
+        actions.redraw();
+      }
+      lastX = event.clientX;
+    } else {
+      actions.hover(event.clientX, event.clientY);
+    }
+  });
+  ui.canvas.addEventListener('pointerup', (event) => {
+    ui.canvas.releasePointerCapture(event.pointerId);
+    dragging = false;
+    if (!moved) actions.clickCanvas(event.clientX, event.clientY);
+  });
+  ui.canvas.addEventListener('pointerleave', () => actions.hover(null, null));
+}
+
+function collectGenerationOptions(ui) {
+  return {
+    seed: ui.seed.value || 'ENGINE-V2-001',
+    template: ui.template.value,
+    archetype: ui.archetype.value
+  };
+}
+
+function collectToolOptions(ui, cellId) {
+  return {
+    tool: ui.tool.value,
+    cellId,
+    strength: Number(ui.toolStrength.value || 1),
+    radius: Number(ui.toolRadius.value || 1)
+  };
+}
+
+function bindPanelToggles(ui) {
+  bindSimplePanelToggle(ui.toggleTrends, ui.trendsCard, 'Trends');
+  bindSimplePanelToggle(ui.toggleDiagnostics, ui.diagnosticsCard, 'Dev/Test');
+  bindBottomPanelToggle(ui, ui.toggleLedger, ui.ledgerCard, 'Migration Ledger');
+  bindBottomPanelToggle(ui, ui.toggleEventLog, ui.eventLogCard, 'Event Log');
+}
+
+function bindSimplePanelToggle(button, panel, label) {
+  if (!button || !panel) return;
+  button.addEventListener('click', () => {
+    const willShow = panel.classList.contains('panel-hidden');
+    panel.classList.toggle('panel-hidden', !willShow);
+    button.textContent = `${willShow ? 'Hide' : 'Show'} ${label}`;
+  });
+}
+
+function bindBottomPanelToggle(ui, button, panel, label) {
+  if (!button || !panel) return;
+  button.addEventListener('click', () => {
+    const willShow = panel.classList.contains('panel-hidden');
+    panel.classList.toggle('panel-hidden', !willShow);
+    button.textContent = `${willShow ? 'Hide' : 'Show'} ${label}`;
+    updateBottomPanelVisibility(ui);
+  });
+}
+
+function updateBottomPanelVisibility(ui) {
+  if (!ui.bottomPanels) return;
+  const showLedger = ui.ledgerCard && !ui.ledgerCard.classList.contains('panel-hidden');
+  const showEvents = ui.eventLogCard && !ui.eventLogCard.classList.contains('panel-hidden');
+  ui.bottomPanels.classList.toggle('panel-hidden', !(showLedger || showEvents));
+}
+
+
+/* ============================================================
+   Trends
+   Source section: trends.js
+   Compacted for Engine v2 0.1.9.
+   ============================================================ */
+
+const MAX_SAMPLES = 48;
+const samples = [];
+
+function updateTrends(container, sample) {
+  if (!sample) return;
+  samples.push(sample);
+  while (samples.length > MAX_SAMPLES) samples.shift();
+  const latest = samples[samples.length - 1];
+  const first = samples[0] || latest;
+  container.innerHTML = `
+    <div class="trend-row"><span>Samples</span><strong>${samples.length}/${MAX_SAMPLES}</strong></div>
+    <div class="trend-row"><span>Year range</span><strong>${first.year} to ${latest.year}</strong></div>
+    <div class="trend-row"><span>Temperature</span><strong>${formatDelta(first.tempC, latest.tempC, ' °C')}</strong></div>
+    <div class="trend-row"><span>Water share</span><strong>${formatDelta(first.waterShare, latest.waterShare, '', true)}</strong></div>
+    <div class="trend-row"><span>Ice share</span><strong>${formatDelta(first.iceShare, latest.iceShare, '', true)}</strong></div>
+    <div class="trend-row"><span>Habitability</span><strong>${formatDelta(first.habitability, latest.habitability, '', true)}</strong></div>
+    <div class="trend-row"><span>Primitive life</span><strong>${formatDelta(first.primitiveLife, latest.primitiveLife, '', false)}</strong></div>
+    <div class="trend-row"><span>Dormant life</span><strong>${formatDelta(first.dormantLife, latest.dormantLife, '', false)}</strong></div>
+    <div class="trend-row"><span>Primitive biomass</span><strong>${formatDelta(first.primitiveBiomass, latest.primitiveBiomass, '', false)}</strong></div>
+    <div class="trend-row"><span>Biosphere health</span><strong>${formatDelta(first.biosphereHealth, latest.biosphereHealth, '', false)}</strong></div>
+    <div class="trend-row"><span>Extinction risk</span><strong>${formatDelta(first.extinctionRisk, latest.extinctionRisk, '', false)}</strong></div>
+    <div class="trend-row"><span>Life viability</span><strong>${formatDelta(first.lifeViability, latest.lifeViability, '', false)}</strong></div>
+    <div class="trend-row"><span>Biodiversity</span><strong>${formatDelta(first.biodiversity, latest.biodiversity, '', false)}</strong></div>
+    <div class="trend-row"><span>Settlement</span><strong>${formatDelta(first.settlement, latest.settlement, '', false)}</strong></div>
+    <div class="trend-row"><span>Collapse risk</span><strong>${formatDelta(first.collapseRisk, latest.collapseRisk, '', false)}</strong></div>
+  `;
+}
+
+function formatDelta(first, latest, suffix, percent = false) {
+  const f = Number(first);
+  const l = Number(latest);
+  if (!Number.isFinite(f) || !Number.isFinite(l)) return 'n/a';
+  const delta = l - f;
+  if (percent) {
+    return `${(l * 100).toFixed(1)}% (${delta >= 0 ? '+' : ''}${(delta * 100).toFixed(1)} pp)`;
+  }
+  return `${l.toFixed(3)}${suffix} (${delta >= 0 ? '+' : ''}${delta.toFixed(3)})`;
+}
+
+
+/* ============================================================
+   Diagnostics helpers
+   Source section: diagnostics.js
+   Compacted for Engine v2 0.1.9.
+   ============================================================ */
+
+function classifyTiming(ms, warnMs = 20, failMs = 60) {
+  if (!Number.isFinite(ms)) return 'unknown';
+  if (ms >= failMs) return 'fail';
+  if (ms >= warnMs) return 'warn';
+  return 'pass';
+}
+
+function diagnosticSnapshot(summary, diagnostics, mainMetrics) {
+  return {
+    year: summary?.year ?? 0,
+    tick: summary?.stepCount ?? 0,
+    workerStatus: diagnostics?.workerStatus ?? 'unknown',
+    tickTiming: classifyTiming(diagnostics?.lastWorkerTickMs ?? 0),
+    renderTiming: classifyTiming(mainMetrics?.lastRenderMs ?? 0),
+    domTiming: classifyTiming(mainMetrics?.lastDomMs ?? 0),
+    cellCount: diagnostics?.cellCount ?? 0,
+    neighbourLinks: diagnostics?.neighbourLinks ?? 0
+  };
+}
+
+
+/* ============================================================
+   Worker lifecycle
+   Two-file architecture: simulation-worker.js is the only Worker logic source.
+   ============================================================ */
+
+function createWorker() {
+  startWorker();
+}
+
+function startWorker() {
+  try {
+    if (worker) {
+      try { worker.terminate(); } catch (_) {}
+    }
+    worker = null;
+    workerMode = 'external';
+    workerReady = false;
+    initialGenerateSent = false;
+    clearWorkerStartupTimer();
+
+    worker = new Worker('./simulation-worker.js?v=0.1.9');
+    setStatus(ui, 'Worker: external simulation-worker.js starting.');
+    addEvent(ui, 'External Worker attempted: simulation-worker.js?v=0.1.9.');
+
+    worker.addEventListener('message', onWorkerMessage);
+    worker.addEventListener('error', (event) => {
+      const message = event.message || 'Worker script failed to load or execute.';
+      setStatus(ui, `Worker error: ${message}`);
+      addEvent(ui, `Worker failed in external mode: ${message}`);
+      if (ui.workerStatus) ui.workerStatus.textContent = 'FAILED';
+      setStatus(ui, 'Worker failed: simulation-worker.js did not reach READY. Confirm index.html and simulation-worker.js are deployed together from the same static folder.');
+    });
+    worker.addEventListener('messageerror', () => {
+      setStatus(ui, 'Worker message error: payload could not be cloned.');
+      addEvent(ui, 'Worker message error in external mode.');
+    });
+
+    command(COMMANDS.INIT, collectGenerationOptions(ui), false);
+    workerStartupTimer = setTimeout(() => {
+      if (!workerReady) {
+        if (ui.workerStatus) ui.workerStatus.textContent = 'FAILED';
+        setStatus(ui, 'Worker failed: external simulation-worker.js did not report READY within 2.5 seconds.');
+        addEvent(ui, 'Worker startup timeout. Check that index.html and simulation-worker.js are deployed together and served by the same static origin.');
+      }
+    }, 2500);
+  } catch (error) {
+    setStatus(ui, `Worker creation failed: ${error.message}`);
+    addEvent(ui, `Worker creation failed in external mode: ${error.message}`);
+    if (ui.workerStatus) ui.workerStatus.textContent = 'FAILED';
+  }
+}
+
+function clearWorkerStartupTimer() {
+  if (workerStartupTimer) {
+    clearTimeout(workerStartupTimer);
+    workerStartupTimer = null;
+  }
+}
+
+function command(type, payload = {}, log = true) {
+  if (!worker) return;
+  worker.postMessage({ type, payload });
+  if (log) addEvent(ui, `Command sent: ${type}`);
+}
+
+function onWorkerMessage(event) {
+  const { type, payload } = event.data || {};
+  if (type === EVENTS.READY) {
+    workerReady = true;
+    clearWorkerStartupTimer();
+    const displayMode = 'external';
+    if (ui.workerStatus) ui.workerStatus.textContent = `READY (${displayMode})`;
+    setStatus(ui, `Worker READY (${displayMode}) | ${payload.meshType} | ${payload.cellCount} cells`);
+    addEvent(ui, `Worker reported READY using ${displayMode} mode.`);
+    if (!initialGenerateSent) {
+      initialGenerateSent = true;
+      addEvent(ui, 'Default generation request sent after READY.');
+      command(COMMANDS.GENERATE, collectGenerationOptions(ui), false);
+    }
+  } else if (type === EVENTS.STATE_SUMMARY) {
+    lastSummary = payload;
+    const start = performance.now();
+    renderSummary(ui, payload);
+    mainMetrics.lastDomMs = performance.now() - start;
+  } else if (type === EVENTS.SELECTED_CELL_SUMMARY) {
+    selectedCell = payload.cellId ?? -1;
+    const start = performance.now();
+    renderSelected(ui, payload);
+    mainMetrics.lastDomMs = Math.max(mainMetrics.lastDomMs, performance.now() - start);
+    redraw();
+  } else if (type === EVENTS.RENDER_DATA) {
+    renderer.setRenderData(payload);
+    redraw();
+  } else if (type === EVENTS.TREND_SAMPLE) {
+    updateTrends(ui.trends, payload);
+  } else if (type === EVENTS.PROBE_RESULT || type === EVENTS.PROBE_SUMMARY) {
+    renderProbeResult(ui, payload);
+    addEvent(ui, type === EVENTS.PROBE_SUMMARY ? 'Worker probes completed.' : `Worker probe completed: ${payload.id}`);
+  } else if (type === EVENTS.DIAGNOSTIC_SUMMARY) {
+    lastDiagnostics = payload;
+    renderDiagnostics(ui, payload, mainMetrics);
+  } else if (type === EVENTS.ERROR) {
+    setStatus(ui, `Worker command error: ${payload.message}`);
+    addEvent(ui, `Worker command error on ${payload.command}: ${payload.message}`);
+  }
+}
+
+function redraw() {
+  mainMetrics.lastRenderMs = renderer.render(currentRenderSettings());
+  if (lastDiagnostics) renderDiagnostics(ui, lastDiagnostics, mainMetrics);
+}
+
+function currentRenderSettings() {
+  updateVisualReadouts(ui);
+  updateToolUiReadouts(ui);
+  return {
+    visualMode: ui.visualMode.value,
+    layer: ui.layer.value,
+    overlayOpacity: Number(ui.overlayOpacity.value || 0.65),
+    clouds: ui.clouds.checked,
+    selectedCell,
+    hoverCell,
+    toolRadius: Number(ui.toolRadius.value || 1)
+  };
+}
+
+function toggleRun() {
+  running = !running;
+  ui.runPause.textContent = running ? 'Pause' : 'Run';
+  addEvent(ui, running ? 'Run started.' : 'Run paused.');
+  if (runTimer) {
+    clearInterval(runTimer);
+    runTimer = null;
+  }
+  if (running) {
+    const startLoop = () => {
+      const speed = Math.max(1, Number(ui.speed.value || 1));
+      const cadenceMs = Math.max(140, 900 / speed);
+      runTimer = setInterval(() => command(COMMANDS.STEP, {}, false), cadenceMs);
+    };
+    startLoop();
+  }
+}
+
+function applyToolToSelected() {
+  if (selectedCell < 0) {
+    if (ui.applyTool) ui.applyTool.disabled = true;
+    setStatus(ui, 'No selected cell. Inspect a cell first.');
+    return;
+  }
+  command(COMMANDS.APPLY_TOOL, collectToolOptions(ui, selectedCell));
+}
+
+function clickCanvas(clientX, clientY) {
+  const cellId = renderer.pick(clientX, clientY);
+  if (cellId < 0) return;
+  selectedCell = cellId;
+  command(COMMANDS.APPLY_TOOL, collectToolOptions(ui, cellId));
+}
+
+function hover(clientX, clientY) {
+  const nextHoverCell = clientX === null || clientY === null ? -1 : renderer.pick(clientX, clientY);
+  if (nextHoverCell === hoverCell) return;
+  hoverCell = nextHoverCell;
+  redraw();
+}
+
+function rotate(delta) {
+  renderer.rotate(delta);
+}
+
+function resetView() {
+  renderer.resetView();
+}
+
+bindControls(ui, { command, toggleRun, applyToolToSelected, clickCanvas, hover, rotate, resetView, redraw });
+globalThis.addEventListener('resize', () => { renderer.updateViewport(true); redraw(); });
+createWorker();
+
+addEvent(ui, 'Engine v2 main thread initialised inline in index.html. V1 intervention parity active. Deploy index.html and simulation-worker.js together to GitHub Pages or another static host.');
+</script>
 </body>
 </html>

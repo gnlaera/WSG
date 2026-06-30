@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
-  <title>WSG Engine v2 Build 0.1.9 - Two-File Static Worker</title>
+  <title>WSG Engine v2 Build 0.2.0 - Scientific Visual Resolution Upgrade</title>
   <style>
 :root {
   color-scheme: dark;
@@ -180,8 +180,8 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
 <div class="app">
   <header class="topbar">
     <div class="brand">
-      <strong id="build-label">WSG Engine v2 Build 0.1.9 - Two-File Static Worker</strong>
-      <span id="summary-line">Engine v2 Worker branch with Classic-style visual parity and functional boot hotfix.</span>
+      <strong id="build-label">WSG Engine v2 Build 0.2.0 - Scientific Visual Resolution Upgrade</strong>
+      <span id="summary-line">Engine v2 Worker branch with Standard 2,880-face mesh, improved natural rendering, and science-grade layer legends.</span>
     </div>
     <label class="small headerTemplateControl" title="World template">
       <span>Template</span>
@@ -190,6 +190,10 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
     <label class="small headerArchetypeControl" title="World archetype">
       <span>Archetype</span>
       <select id="world-archetype"></select>
+    </label>
+    <label class="small headerMeshQualityControl" title="Mesh quality and active cell count">
+      <span>Mesh</span>
+      <select id="mesh-quality"></select>
     </label>
     <button id="generate-button" class="primary" type="button">Generate Planet</button>
     <button id="reset-button" type="button">Reset Planet</button>
@@ -255,9 +259,11 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
           <div class="vital"><label>Primitive life</label><span id="vital-life">0.000</span></div>
           <div class="vital"><label>Settlements</label><span id="vital-settlement">0%</span></div>
           <div class="vital"><label>Collapse risk</label><span id="vital-collapse">0.000</span></div>
+          <div class="vital"><label>Mesh</label><span id="vital-mesh">Standard</span></div>
         </div>
       </div>
       <div id="status-line" class="status-line quick-start">Quick Start: Generate planet, select tool, click planet, Step or Run time, inspect consequences.</div>
+      <div id="layer-legend" class="status-line layerLegend">Layer legend: Natural Planet uses texture-like terrain, water, ice, cloud, atmosphere and lighting.</div>
       <section class="card compact-card">
         <h2>Selected Cell</h2>
         <div id="selected-panel"><p>No cell selected.</p></div>
@@ -304,7 +310,7 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
   </section>
 
   <footer class="footer">
-    <span>Engine v2 compact static Worker build. Two files only: index.html and simulation-worker.js. Inline Canvas 2D main-thread renderer; Worker-owned simulation state; no build tooling or imported asset bundles.</span>
+    <span>Engine v2 scientific visual upgrade. Two files only: index.html and simulation-worker.js. Canvas 2D renderer; Worker-owned mesh, arrays, tools, validation, and render data.</span>
     <span>Two-file Worker architecture</span>
   </footer>
 </div>
@@ -317,10 +323,10 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
 /* ============================================================
    Protocol constants
    Source section: message-protocol.js
-   Compacted for Engine v2 0.1.9.
+   Compacted for Engine v2 0.2.0.
    ============================================================ */
 
-const BUILD_LABEL = 'WSG Engine v2 Build 0.1.9 - Two-File Static Worker';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.2.0 - Scientific Visual Resolution Upgrade';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',
@@ -373,6 +379,18 @@ const ARCHETYPES = Object.freeze([
   { id: 'greenhouse', label: 'Greenhouse' },
   { id: 'rugged', label: 'Rugged Highlands' }
 ]);
+
+
+const MESH_QUALITY_OPTIONS = Object.freeze([
+  { id: 'performance', label: 'Performance - 1,280 faces', frequency: 8, targetFaces: 1280, default: false },
+  { id: 'standard', label: 'Standard - 2,880 faces', frequency: 12, targetFaces: 2880, default: true },
+  { id: 'high', label: 'High / Experimental - 5,120 faces', frequency: 16, targetFaces: 5120, default: false }
+]);
+
+function meshQualityProfile(id) {
+  const requested = String(id || 'standard');
+  return MESH_QUALITY_OPTIONS.find((item) => item.id === requested) || MESH_QUALITY_OPTIONS.find((item) => item.id === 'standard');
+}
 
 const LAYERS = Object.freeze([
   { id: 'elevation', label: 'Elevation' },
@@ -443,7 +461,8 @@ const PROBES = Object.freeze([
   { id: 'civilisation_gate', label: 'Civilisation emergence gate probe' },
   { id: 'intervention_parity', label: 'Intervention parity probe' },
   { id: 'no_dom_in_worker', label: 'No UI access in worker probe' },
-  { id: 'render_data_finite', label: 'Render-data finite/bounded probe' }
+  { id: 'render_data_finite', label: 'Render-data finite/bounded probe' },
+  { id: 'visual_resolution', label: 'Scientific visual resolution probe' }
 ]);
 
 function makeEnvelope(type, payload = {}) {
@@ -454,7 +473,7 @@ function makeEnvelope(type, payload = {}) {
 /* ============================================================
    Utility math
    Source section: util/math.js
-   Compacted for Engine v2 0.1.9.
+   Compacted for Engine v2 0.2.0.
    ============================================================ */
 
 function clamp(value, min, max) {
@@ -500,7 +519,7 @@ function finite01(value) {
 /* ============================================================
    UI references and renderers
    Source section: ui.js
-   Compacted for Engine v2 0.1.9.
+   Compacted for Engine v2 0.2.0.
    ============================================================ */
 
 
@@ -510,6 +529,7 @@ function getUi() {
     workerStatus: byId('worker-status'),
     template: byId('world-template'),
     archetype: byId('world-archetype'),
+    meshQuality: byId('mesh-quality'),
     seed: byId('seed-input'),
     generate: byId('generate-button'),
     reset: byId('reset-button'),
@@ -567,7 +587,9 @@ function getUi() {
     vitalHabit: byId('vital-habit'),
     vitalLife: byId('vital-life'),
     vitalSettlement: byId('vital-settlement'),
-    vitalCollapse: byId('vital-collapse')
+    vitalCollapse: byId('vital-collapse'),
+    vitalMesh: byId('vital-mesh'),
+    layerLegend: byId('layer-legend')
   };
 }
 
@@ -575,6 +597,8 @@ function initialiseUi(ui) {
   ui.buildLabel.textContent = BUILD_LABEL;
   fillSelect(ui.template, TEMPLATES);
   fillSelect(ui.archetype, ARCHETYPES);
+  fillSelect(ui.meshQuality, MESH_QUALITY_OPTIONS);
+  ui.meshQuality.value = 'standard';
   fillSelect(ui.visualMode, VISUAL_MODES);
   fillSelect(ui.layer, LAYERS);
   fillSelect(ui.tool, TOOLS);
@@ -590,7 +614,7 @@ function initialiseUi(ui) {
 function renderSummary(ui, summary) {
   const warnings = summary.warnings && summary.warnings.length ? summary.warnings : ['None'];
   if (ui.workerStatus && ui.workerStatus.textContent === 'initialising') ui.workerStatus.textContent = summary.diagnostics?.workerStatus || 'READY';
-  ui.summaryLine.textContent = `${summary.template} | ${summary.archetype} | year ${summary.year} | cells ${summary.cellCount}`;
+  ui.summaryLine.textContent = `${summary.template} | ${summary.archetype} | ${summary.meshQualityLabel || summary.meshQuality || 'mesh'} | year ${summary.year} | cells ${summary.cellCount}`;
   setTextIfNode(ui.vitalYear, summary.year);
   setTextIfNode(ui.vitalTick, summary.stepCount ?? 0);
   setTextIfNode(ui.vitalWater, formatPct(summary.waterShare));
@@ -600,8 +624,11 @@ function renderSummary(ui, summary) {
   setTextIfNode(ui.vitalLife, formatNum(summary.primitiveLifeMean, 3));
   setTextIfNode(ui.vitalSettlement, formatPct(summary.settlementShare));
   setTextIfNode(ui.vitalCollapse, formatNum(summary.collapseRiskMean, 3));
+  setTextIfNode(ui.vitalMesh, `${summary.meshQualityLabel || summary.meshQuality || 'Standard'} (${summary.cellCount || 0})`);
   ui.stats.innerHTML = `
     <div class="metric"><span>Year</span><strong>${summary.year}</strong></div>
+    <div class="metric"><span>Mesh quality</span><strong>${escapeHtml(summary.meshQualityLabel || summary.meshQuality || 'Standard')}</strong></div>
+    <div class="metric"><span>Active cells</span><strong>${summary.cellCount}</strong></div>
     <div class="metric"><span>Average temperature</span><strong>${formatNum(summary.averageTemperatureC, 1)} °C</strong></div>
     <div class="metric"><span>Water share</span><strong>${formatPct(summary.waterShare)}</strong></div>
     <div class="metric"><span>Ice share</span><strong>${formatPct(summary.iceShare)}</strong></div>
@@ -666,6 +693,8 @@ function renderDiagnostics(ui, diagnostics, mainMetrics) {
   ui.diagnostics.innerHTML = `
     <div class="metric"><span>Worker status</span><strong>${escapeHtml(data.workerStatus || 'unknown')}</strong></div>
     <div class="metric"><span>Worker tick</span><strong>${formatNum(data.lastWorkerTickMs, 2)} ms</strong></div>
+    <div class="metric"><span>Mesh quality</span><strong>${escapeHtml(data.meshQualityLabel || data.meshQuality || 'n/a')}</strong></div>
+    <div class="metric"><span>Mesh frequency</span><strong>${data.meshFrequency || 0}</strong></div>
     <div class="metric"><span>Generation</span><strong>${formatNum(data.lastGenerationMs, 2)} ms</strong></div>
     <div class="metric"><span>Tool application</span><strong>${formatNum(data.lastToolApplicationMs, 2)} ms</strong></div>
     <div class="metric"><span>Probe</span><strong>${formatNum(data.lastProbeMs, 2)} ms</strong></div>
@@ -676,6 +705,7 @@ function renderDiagnostics(ui, diagnostics, mainMetrics) {
     <div class="metric"><span>Cells</span><strong>${data.cellCount || 0}</strong></div>
     <div class="metric"><span>Neighbour links</span><strong>${data.neighbourLinks || 0}</strong></div>
     <div class="metric"><span>Last transfer</span><strong>${formatBytes(data.bytesTransferredLastRenderUpdate || 0)}</strong></div>
+    <div class="metric"><span>Perf warning</span><strong>${escapeHtml(data.performanceWarning || 'None')}</strong></div>
     <div class="metric"><span>Worker messages</span><strong>${data.workerMessageCount || 0}</strong></div>
     <div class="metric wide"><span>Last worker error</span><strong>${escapeHtml(data.lastWorkerError || 'None')}</strong></div>
   `;
@@ -765,13 +795,43 @@ function updateToolUiReadouts(ui) {
 }
 
 function updateVisualReadouts(ui) {
+  const mode = VISUAL_MODES.find((item) => item.id === ui.visualMode.value)?.label || 'Natural Planet';
+  const layer = LAYERS.find((item) => item.id === ui.layer.value)?.label || ui.layer.value;
   if (ui.modeBadge) {
-    const mode = VISUAL_MODES.find((item) => item.id === ui.visualMode.value)?.label || 'Natural Planet';
-    const layer = LAYERS.find((item) => item.id === ui.layer.value)?.label || ui.layer.value;
     ui.modeBadge.textContent = ui.visualMode.value === 'natural' ? mode : `${mode} - ${layer}`;
+  }
+  if (ui.layerLegend) {
+    ui.layerLegend.textContent = layerLegendText(ui.visualMode.value, ui.layer.value, layer);
   }
   const overlayLabel = ui.overlayOpacity?.parentElement?.querySelector('.kpi');
   if (overlayLabel) overlayLabel.textContent = `${Math.round(Number(ui.overlayOpacity.value || 0) * 100)}%`;
+}
+
+function layerLegendText(mode, layerId, layerLabel) {
+  if (mode === 'natural') return 'Natural Planet: texture-like terrain, bathymetry, coastlines, ice, cloud haze, atmosphere rim, and directional lighting. Values remain simplified model indices.';
+  const families = {
+    elevation: 'Elevation model index: deep basin / lowland / highland / mountain.',
+    water: 'Water model index: dry / damp / shallow or coastal / saturated.',
+    temperature: 'Temperature model index: cold / temperate / hot / extreme heat.',
+    ice: 'Ice model index: none / patchy / sea-ice / ice cap.',
+    habitability: 'Habitability model index: hostile / marginal / viable / favourable.',
+    lifeViability: 'Life viability model index: blocked / marginal / viable / favourable.',
+    primitiveLife: 'Primitive life model index: none / seeded / expanding / dense.',
+    primitiveBiomass: 'Primitive biomass model index: barren / low / moderate / high.',
+    biosphereHealth: 'Biosphere health model index: poor / stressed / recovering / healthy.',
+    extinctionRisk: 'Extinction risk model index: low / elevated / high / extreme.',
+    nutrientLevel: 'Nutrients / mineral fertility model index: poor / modest / fertile / rich.',
+    heatStress: 'Heat stress model index: low / moderate / high / extreme.',
+    greenhousePressure: 'Greenhouse / CO2 pressure proxy: low / moderate / high / extreme.',
+    humidity: 'Humidity proxy: dry / moderate / humid / saturated.',
+    rainfall: 'Rainfall proxy: arid / moderate / wet / very wet.',
+    runoff: 'Runoff proxy: low / moderate / high / extreme.',
+    waterStress: 'Water stress model index: low / moderate / high / extreme.',
+    civilisationSuitability: 'Civilisation suitability model index: poor / marginal / viable / strong.',
+    settlements: 'Settlements model index: none / sparse / established / concentrated.',
+    collapseRisk: 'Collapse risk model index: low / elevated / high / extreme.'
+  };
+  return `${layerLabel}: ${families[layerId] || 'simplified model index: low / moderate / high / extreme.'}`;
 }
 
 function setTextIfNode(node, value) {
@@ -808,13 +868,13 @@ function renderProbeLine(item) {
 function migrationLedgerHtml() {
   return `
     <h3>Migration ledger</h3>
-    <p><strong>Status:</strong> Engine v2 0.1.9 preserves Classic v1 intervention parity while consolidating the main thread into index.html and preserving Worker-owned state in a two-file static deployment.</p>
+    <p><strong>Status:</strong> Engine v2 0.2.0 preserves two-file Worker architecture while upgrading mesh resolution, natural rendering, and layer legibility.</p>
     <div class="ledger-grid">
       <section><h4>Ported from Classic</h4><p>Generate, Reset, Step, Run/Pause, Advance Years, seed, template and archetype controls, all 12 Classic v1 intervention tools, major layers, selected-cell inspection, trends, probes, and diagnostics.</p></section>
       <section><h4>Simplified</h4><p>Planet generation, climate, hydrology, primitive life, ecosystem state, stewardship, and early settlements are compact deterministic approximations.</p></section>
       <section><h4>Stubbed for future migration</h4><p>Drainage basins, lake overflow, erosion, sediment, ocean heat transport, richer probes, richer hydrology, and deeper ecosystem transitions.</p></section>
       <section><h4>Intentionally deferred</h4><p>Full Earth matching, all Classic panels, save/load, scenarios, advanced graphics backends, imported data, and asset bundles.</p></section>
-      <section><h4>Known behavioural differences</h4><p>The proof uses a compact icosphere triangle-face mesh and worker-owned state. It now prioritises Classic visual parity while still preserving clean Worker boundaries.</p></section>
+      <section><h4>Known behavioural differences</h4><p>The proof uses a frequency-based spherical triangle-face mesh with Performance, Standard, and High quality modes. Worker-owned arrays regenerate to match the active mesh.</p></section>
     </div>
   `;
 }
@@ -823,7 +883,7 @@ function migrationLedgerHtml() {
 /* ============================================================
    Canvas 2D renderer
    Source section: renderer2d.js
-   Compacted for Engine v2 0.1.9.
+   Compacted for Engine v2 0.2.0.
    ============================================================ */
 
 
@@ -1053,78 +1113,108 @@ function drawSelectedCell(ctx, projection, radius, selectedCell, hoverCell, tool
 }
 
 function naturalColor(data, i, light, cloudsEnabled) {
-  const water = data.water[i];
-  const ice = data.ice[i];
-  const life = data.primitiveLife[i];
-  const mats = data.producerMats[i];
-  const elev = data.elevation[i];
-  const temp = data.temperature[i];
-  const settlements = data.settlements[i];
-  const clouds = cloudsEnabled ? data.cloudCover[i] : 0;
+  const water = clamp01(data.water[i] || 0);
+  const ice = clamp01(data.ice[i] || 0);
+  const life = clamp01(data.primitiveLife[i] || 0);
+  const mats = clamp01(data.producerMats[i] || 0);
+  const elev = clamp01(data.elevation[i] || 0);
+  const rainfall = clamp01(data.rainfall?.[i] || 0);
+  const humidity = clamp01(data.humidity?.[i] || 0);
+  const heat = clamp01(data.heatStress?.[i] || 0);
+  const nutrients = clamp01(data.nutrientLevel?.[i] || 0);
+  const settlements = clamp01(data.settlements?.[i] || 0);
+  const slope = clamp01(data.slopeProxy?.[i] ?? Math.abs(elev - 0.5) * 0.9);
+  const coast = clamp01(data.coastProximity?.[i] ?? (water > 0.20 && water < 0.72 ? 0.7 : 0));
+  const clouds = cloudsEnabled ? clamp01(data.cloudCover?.[i] || 0) : 0;
+  const latAbs = Math.abs(data.latitude?.[i] || 0) / 90;
+  const daylight = clamp01(light);
   let r;
   let g;
   let b;
-  if (water > 0.45) {
-    r = lerp(18, 36, water);
-    g = lerp(62, 118, water);
-    b = lerp(110, 190, water);
+  if (water > 0.50) {
+    const depth = clamp01((water - 0.50) / 0.50);
+    r = lerp(26, 6, depth);
+    g = lerp(98, 46, depth);
+    b = lerp(152, 116, depth);
+    const shallow = clamp01(1 - depth) * coast;
+    r = lerp(r, 44, shallow * 0.70);
+    g = lerp(g, 148, shallow * 0.75);
+    b = lerp(b, 182, shallow * 0.55);
   } else {
-    const dry = clamp01(1 - data.habitability[i]);
-    r = lerp(90, 178, dry) + elev * 40;
-    g = lerp(108, 120, dry) + life * 80 + mats * 40;
-    b = lerp(72, 58, dry);
+    const arid = clamp01(heat * 0.45 + (1 - rainfall) * 0.40 + (1 - humidity) * 0.25);
+    const vegetated = clamp01((life * 0.60 + mats * 0.28 + nutrients * 0.10) * (1 - heat * 0.55) * (1 - ice * 0.85));
+    if (elev > 0.78) {
+      r = lerp(116, 178, slope);
+      g = lerp(108, 170, slope);
+      b = lerp(96, 160, slope);
+    } else if (arid > 0.55) {
+      r = lerp(124, 206, arid);
+      g = lerp(98, 156, arid);
+      b = lerp(64, 82, arid);
+    } else {
+      r = lerp(92, 52, vegetated);
+      g = lerp(108, 150, vegetated);
+      b = lerp(72, 70, vegetated);
+    }
+    r = lerp(r, 210, coast * 0.18);
+    g = lerp(g, 188, coast * 0.13);
+    b = lerp(b, 118, coast * 0.10);
   }
-  if (life > 0.03) {
-    r = lerp(r, 50, clamp01(life * 0.8));
-    g = lerp(g, 150, clamp01(life * 0.9));
-    b = lerp(b, 76, clamp01(life * 0.6));
-  }
-  if (ice > 0.20) {
-    const a = clamp01(ice);
+  if (ice > 0.12) {
+    const polarIce = clamp01(ice * (0.55 + latAbs * 0.45));
+    const seaIce = water > 0.50 ? clamp01(ice * 0.85) : 0;
+    const a = clamp01(Math.max(polarIce, seaIce));
     r = lerp(r, 220, a);
     g = lerp(g, 236, a);
-    b = lerp(b, 245, a);
+    b = lerp(b, seaIce > polarIce ? 246 : 238, a);
   }
-  if (temp > 0.74 && water < 0.40) {
-    r = lerp(r, 218, 0.25);
-    g = lerp(g, 110, 0.20);
-    b = lerp(b, 50, 0.20);
-  }
+  const relief = 0.84 + slope * 0.18 + clamp01(elev - 0.55) * 0.10 - clamp01(0.42 - elev) * 0.08;
+  const haze = cloudsEnabled ? clamp01(clouds * 0.42 + humidity * 0.08) : 0;
+  r = lerp(r, 238, haze);
+  g = lerp(g, 242, haze);
+  b = lerp(b, 244, haze);
   if (settlements > 0.04) {
-    r = lerp(r, 255, settlements * 0.45);
-    g = lerp(g, 205, settlements * 0.25);
-    b = lerp(b, 92, settlements * 0.20);
+    r = lerp(r, 255, settlements * 0.42);
+    g = lerp(g, 208, settlements * 0.25);
+    b = lerp(b, 98, settlements * 0.18);
   }
-  if (clouds > 0.12) {
-    const a = clamp01(clouds * 0.45);
-    r = lerp(r, 232, a);
-    g = lerp(g, 236, a);
-    b = lerp(b, 238, a);
-  }
-  return rgb(r * light, g * light, b * light);
+  const illum = 0.46 + daylight * 0.52;
+  return rgb(r * illum * relief, g * illum * relief, b * illum * relief);
 }
 
 function layerColor(data, i, layer, light, diagnostic) {
-  const v = clamp01(data[layer]?.[i] ?? 0);
+  const raw = data[layer]?.[i];
+  const v = clamp01(raw ?? 0);
   let color;
-  if (layer === 'water' || layer === 'waterFlow' || layer === 'cloudCover' || layer === 'humidity' || layer === 'rainfall' || layer === 'runoff' || layer === 'waterAccess') color = ramp(v, [15, 34, 66], [62, 162, 225]);
+  if (layer === 'elevation') color = multiRamp(v, [[10,52,88],[44,126,150],[106,132,82],[150,128,98],[235,236,226]]);
+  else if (layer === 'water' || layer === 'waterFlow' || layer === 'waterAccess') color = multiRamp(v, [[46,34,30],[44,92,120],[66,170,210],[12,66,140]]);
+  else if (layer === 'humidity' || layer === 'rainfall' || layer === 'runoff' || layer === 'cloudCover') color = multiRamp(v, [[82,58,42],[74,118,140],[74,180,210],[210,238,244]]);
   else if (layer === 'temperature') color = tempRamp(v);
-  else if (layer === 'ice' || layer === 'albedo') color = ramp(v, [35, 70, 92], [236, 248, 255]);
-  else if (layer === 'primitiveLife' || layer === 'producerMats' || layer === 'habitability' || layer === 'biodiversityIndex' || layer === 'ecosystemResilience' || layer === 'lifeViability' || layer === 'primitiveBiomass' || layer === 'biosphereHealth' || layer === 'foodSupport' || layer === 'recoveryCapacity') color = ramp(v, [38, 40, 34], [60, 190, 95]);
-  else if (layer === 'dormantLife') color = ramp(v, [38, 38, 72], [126, 160, 232]);
-  else if (layer === 'extinctionRisk' || layer === 'survivalPressure' || layer === 'heatStress' || layer === 'waterStress' || layer === 'ecosystemStress' || layer === 'disturbancePressure' || layer === 'civilisationStress' || layer === 'collapseRisk') color = ramp(v, [52, 38, 32], [230, 88, 58]);
-  else if (layer === 'stewardshipPressure' || layer === 'restorationPriority' || layer === 'recoveryPotential' || layer === 'habitatContinuity') color = ramp(v, [50, 42, 68], [170, 225, 120]);
-  else if (layer === 'civilisationSuitability' || layer === 'settlements' || layer === 'populationIndex') color = ramp(v, [32, 32, 42], [255, 196, 76]);
-  else if (layer === 'greenhousePressure') color = ramp(v, [48, 62, 82], [224, 106, 52]);
-  else if (layer === 'nutrientLevel') color = ramp(v, [70, 58, 36], [184, 220, 92]);
-  else if (layer === 'solarInput') color = ramp(v, [30, 42, 70], [255, 216, 95]);
-  else color = ramp(v, [42, 36, 34], [216, 224, 160]);
-  const multiplier = diagnostic ? 1 : light;
+  else if (layer === 'ice' || layer === 'albedo') color = multiRamp(v, [[30,54,82],[120,178,212],[222,242,252],[255,255,255]]);
+  else if (layer === 'habitability' || layer === 'lifeViability' || layer === 'primitiveLife' || layer === 'producerMats' || layer === 'primitiveBiomass' || layer === 'biosphereHealth' || layer === 'biodiversityIndex' || layer === 'ecosystemResilience' || layer === 'foodSupport' || layer === 'recoveryCapacity') color = multiRamp(v, [[46,42,34],[106,92,58],[70,150,90],[64,214,138]]);
+  else if (layer === 'dormantLife') color = multiRamp(v, [[42,38,70],[76,86,150],[134,160,230]]);
+  else if (layer === 'extinctionRisk' || layer === 'survivalPressure' || layer === 'heatStress' || layer === 'waterStress' || layer === 'ecosystemStress' || layer === 'disturbancePressure' || layer === 'civilisationStress' || layer === 'collapseRisk') color = multiRamp(v, [[44,46,42],[126,94,50],[218,130,44],[238,64,54]]);
+  else if (layer === 'stewardshipPressure' || layer === 'restorationPriority' || layer === 'recoveryPotential' || layer === 'habitatContinuity') color = multiRamp(v, [[48,42,72],[90,116,96],[164,220,116]]);
+  else if (layer === 'civilisationSuitability' || layer === 'settlements' || layer === 'populationIndex') color = multiRamp(v, [[32,32,42],[122,92,62],[240,176,74],[255,230,116]]);
+  else if (layer === 'greenhousePressure') color = multiRamp(v, [[50,74,94],[122,118,92],[220,122,56],[230,66,48]]);
+  else if (layer === 'nutrientLevel') color = multiRamp(v, [[74,60,42],[120,112,64],[186,214,92],[220,236,126]]);
+  else if (layer === 'solarInput') color = multiRamp(v, [[28,44,76],[104,120,112],[244,202,86],[255,230,120]]);
+  else if (layer === 'slopeProxy' || layer === 'coastProximity') color = multiRamp(v, [[35,35,35],[120,120,120],[235,235,235]]);
+  else color = ramp(v, [42,36,34], [216,224,160]);
+  const multiplier = diagnostic ? 1 : (0.68 + light * 0.32);
   return rgb(color[0] * multiplier, color[1] * multiplier, color[2] * multiplier);
 }
 
+
 function ramp(v, a, b) {
   return [lerp(a[0], b[0], v), lerp(a[1], b[1], v), lerp(a[2], b[2], v)];
+}
+
+function multiRamp(v, stops) {
+  const n = stops.length - 1;
+  const scaled = clamp01(v) * n;
+  const idx = Math.min(n - 1, Math.floor(scaled));
+  return ramp(scaled - idx, stops[idx], stops[idx + 1]);
 }
 
 function tempRamp(v) {
@@ -1140,7 +1230,7 @@ function rgb(r, g, b) {
 /* ============================================================
    Controls
    Source section: controls.js
-   Compacted for Engine v2 0.1.9.
+   Compacted for Engine v2 0.2.0.
    ============================================================ */
 
 
@@ -1153,6 +1243,10 @@ function bindControls(ui, actions) {
   ui.speed.addEventListener('change', () => actions.command(COMMANDS.SET_SPEED, { speed: Number(ui.speed.value) }));
   ui.template.addEventListener('change', () => actions.command(COMMANDS.SET_TEMPLATE, { template: ui.template.value }));
   ui.archetype.addEventListener('change', () => actions.command(COMMANDS.SET_ARCHETYPE, { archetype: ui.archetype.value }));
+  if (ui.meshQuality) ui.meshQuality.addEventListener('change', () => {
+    actions.command(COMMANDS.GENERATE, collectGenerationOptions(ui));
+    actions.addEvent?.(`Mesh quality changed to ${ui.meshQuality.options[ui.meshQuality.selectedIndex].text}; planet regenerated deliberately.`);
+  });
   ui.applyTool.addEventListener('click', () => actions.applyToolToSelected());
   ui.runProbe.addEventListener('click', () => actions.command(COMMANDS.RUN_PROBE, { probeId: ui.probeSelect.value }));
   ui.runAllProbes.addEventListener('click', () => actions.command(COMMANDS.RUN_ALL_PROBES, {}));
@@ -1207,7 +1301,8 @@ function collectGenerationOptions(ui) {
   return {
     seed: ui.seed.value || 'ENGINE-V2-001',
     template: ui.template.value,
-    archetype: ui.archetype.value
+    archetype: ui.archetype.value,
+    meshQuality: ui.meshQuality.value
   };
 }
 
@@ -1257,7 +1352,7 @@ function updateBottomPanelVisibility(ui) {
 /* ============================================================
    Trends
    Source section: trends.js
-   Compacted for Engine v2 0.1.9.
+   Compacted for Engine v2 0.2.0.
    ============================================================ */
 
 const MAX_SAMPLES = 48;
@@ -1303,7 +1398,7 @@ function formatDelta(first, latest, suffix, percent = false) {
 /* ============================================================
    Diagnostics helpers
    Source section: diagnostics.js
-   Compacted for Engine v2 0.1.9.
+   Compacted for Engine v2 0.2.0.
    ============================================================ */
 
 function classifyTiming(ms, warnMs = 20, failMs = 60) {
@@ -1327,6 +1422,24 @@ function diagnosticSnapshot(summary, diagnostics, mainMetrics) {
 }
 
 
+
+const ui = getUi();
+initialiseUi(ui);
+const renderer = createCanvasRenderer(ui.canvas);
+let worker = null;
+let workerMode = 'external';
+let workerReady = false;
+let initialGenerateSent = false;
+let workerStartupTimer = null;
+let running = false;
+let runTimer = null;
+let selectedCell = -1;
+let hoverCell = -1;
+let lastSummary = null;
+let lastDiagnostics = null;
+let hoverRedrawQueued = false;
+const mainMetrics = { lastRenderMs: 0, lastDomMs: 0 };
+
 /* ============================================================
    Worker lifecycle
    Two-file architecture: simulation-worker.js is the only Worker logic source.
@@ -1347,9 +1460,9 @@ function startWorker() {
     initialGenerateSent = false;
     clearWorkerStartupTimer();
 
-    worker = new Worker('./simulation-worker.js?v=0.1.9');
+    worker = new Worker('./simulation-worker.js?v=0.2.0');
     setStatus(ui, 'Worker: external simulation-worker.js starting.');
-    addEvent(ui, 'External Worker attempted: simulation-worker.js?v=0.1.9.');
+    addEvent(ui, 'External Worker attempted: simulation-worker.js?v=0.2.0.');
 
     worker.addEventListener('message', onWorkerMessage);
     worker.addEventListener('error', (event) => {
@@ -1399,7 +1512,7 @@ function onWorkerMessage(event) {
     clearWorkerStartupTimer();
     const displayMode = 'external';
     if (ui.workerStatus) ui.workerStatus.textContent = `READY (${displayMode})`;
-    setStatus(ui, `Worker READY (${displayMode}) | ${payload.meshType} | ${payload.cellCount} cells`);
+    setStatus(ui, `Worker READY (${displayMode}) | ${payload.meshType} | ${payload.meshQualityLabel || 'mesh'} | ${payload.cellCount} cells`);
     addEvent(ui, `Worker reported READY using ${displayMode} mode.`);
     if (!initialGenerateSent) {
       initialGenerateSent = true;
@@ -1491,7 +1604,10 @@ function hover(clientX, clientY) {
   const nextHoverCell = clientX === null || clientY === null ? -1 : renderer.pick(clientX, clientY);
   if (nextHoverCell === hoverCell) return;
   hoverCell = nextHoverCell;
-  redraw();
+  if (!hoverRedrawQueued) {
+    hoverRedrawQueued = true;
+    requestAnimationFrame(() => { hoverRedrawQueued = false; redraw(); });
+  }
 }
 
 function rotate(delta) {
@@ -1502,11 +1618,11 @@ function resetView() {
   renderer.resetView();
 }
 
-bindControls(ui, { command, toggleRun, applyToolToSelected, clickCanvas, hover, rotate, resetView, redraw });
+bindControls(ui, { command, toggleRun, applyToolToSelected, clickCanvas, hover, rotate, resetView, redraw, addEvent: (text) => addEvent(ui, text) });
 globalThis.addEventListener('resize', () => { renderer.updateViewport(true); redraw(); });
 createWorker();
 
-addEvent(ui, 'Engine v2 main thread initialised inline in index.html. V1 intervention parity active. Deploy index.html and simulation-worker.js together to GitHub Pages or another static host.');
+addEvent(ui, 'Engine v2 main thread initialised inline in index.html. Scientific visual resolution upgrade active. Deploy index.html and simulation-worker.js together to GitHub Pages or another static host.');
 </script>
 </body>
 </html>

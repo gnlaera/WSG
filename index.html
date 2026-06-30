@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
-  <title>WSG Engine v2 Build 0.1.8 - V1 Intervention Parity</title>
+  <title>WSG Engine v2 Build 0.1.9 - Runtime Boot and Product Cleanup</title>
   <style>
 :root {
   color-scheme: dark;
@@ -154,7 +154,7 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
 .ledger-grid { display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 8px; }
 .ledger-grid section { padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,0.025); }
 .ledger-grid p { color: var(--muted); margin-bottom: 0; }
-.panel-hidden { display: none !important; }
+.panel-hidden, .scaffold-hidden { display: none !important; }
 .small-note { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
 .footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-top: 1px solid var(--line); background: rgba(3, 8, 13, 0.82); color: var(--muted); font-size: 12px; }
 @media (max-width: 1180px) {
@@ -180,8 +180,8 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
 <div class="app">
   <header class="topbar">
     <div class="brand">
-      <strong id="build-label">WSG Engine v2 Build 0.1.8 - V1 Intervention Parity</strong>
-      <span id="summary-line">Engine v2 Worker branch with Classic-style visual parity and functional boot hotfix.</span>
+      <strong id="build-label">WSG Engine v2 Build 0.1.9 - Runtime Boot and Product Cleanup</strong>
+      <span id="summary-line">Engine v2 Worker branch with Classic-style interventions and product-clean player surface.</span>
     </div>
     <label class="small headerTemplateControl" title="World template">
       <span>Template</span>
@@ -209,9 +209,6 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
     <button id="rotate-right" type="button">Rotate Right</button>
     <button id="reset-view" type="button">Reset View</button>
     <button id="toggle-trends" class="toggle-button" type="button">Show Trends</button>
-    <button id="toggle-diagnostics" class="toggle-button" type="button">Show Dev/Test</button>
-    <button id="toggle-ledger" class="toggle-button" type="button">Show Migration Ledger</button>
-    <button id="toggle-event-log" class="toggle-button" type="button">Show Event Log</button>
     <div class="status-pill">Worker: <span id="worker-status">initialising</span></div>
   </header>
 
@@ -236,7 +233,7 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
       <div class="feedbackCard">
         <h3>Quick Start</h3>
         <p>Generate planet. Select a tool. Click the globe. Step or Run time. Inspect consequences.</p>
-        <p class="small">The Worker owns state, tool application, probes, summaries, validation, and render data. This page is presentation only.</p>
+        <p class="small">The Worker owns state and tool application. This screen stays focused on the planet and player actions.</p>
       </div>
     </aside>
 
@@ -279,36 +276,15 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
         <p class="small-note">Compact trend summary. Hidden by default to preserve the planet-first view.</p>
         <div id="trends-panel"><p>Trend samples will appear after generation and ticks.</p></div>
       </section>
-      <section class="feedbackCard panel-hidden" id="diagnostics-card">
-        <h3>Developer / Diagnostics</h3>
-        <div id="diagnostics-panel" class="metric-grid"><p>Waiting for diagnostics.</p></div>
-        <hr>
-        <label class="small">Probe<select id="probe-select"></select></label>
-        <div class="button-row">
-          <button id="run-probe-button" type="button">Run Probe</button>
-          <button id="run-all-probes-button" type="button">Run All Probes</button>
-        </div>
-        <div id="probe-output" class="probe-output"></div>
-      </section>
     </aside>
   </main>
 
-  <section class="bottom-panels panel-hidden" id="advanced-bottom-panels">
-    <article class="card panel-hidden" id="migration-ledger-card">
-      <div id="migration-ledger"></div>
-    </article>
-    <article class="card panel-hidden" id="event-log-card">
-      <h3>Show Event Log</h3>
-      <div id="event-log" class="event-log"></div>
-    </article>
-  </section>
-
   <footer class="footer">
-    <span>Engine v2 compact static Worker build. Three files only. Canvas 2D main-thread renderer; Worker-owned simulation state; no build tooling or imported asset bundles.</span>
-    <span>V1 intervention parity</span>
+    <span>Engine v2 compact Worker build. Three files only. Canvas 2D renderer; Worker-owned simulation state.</span>
+    <span>Runtime boot and product cleanup</span>
   </footer>
 </div>
 
-<script defer src="./app.js?v=0.1.8"></script>
+<script defer src="./app.js?v=0.1.9"></script>
 </body>
 </html>

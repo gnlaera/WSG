@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
-  <title>WSG Engine v2 Build 0.1.7 - Classic Parity Functional Hotfix</title>
+  <title>WSG Engine v2 Build 0.1.8 - V1 Intervention Parity</title>
   <style>
 :root {
   color-scheme: dark;
@@ -112,15 +112,18 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
 }
 .card { padding: 12px; }
 .control-column, .info-column { min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
-.toolPanel { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+.toolPanel { padding: 12px; display: flex; flex-direction: column; gap: 12px; overflow: auto; }
 .panelTitle { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-weight: 700; font-size: 13px; color: #f2fbff; }
 .toolGrid { display: grid; grid-template-columns: 1fr; gap: 8px; }
-.toolGrid button { text-align: left; display: flex; align-items: center; gap: 7px; padding: 7px 8px; background: rgba(255,255,255,0.04); }
+.toolGrid button { text-align: left; display: flex; align-items: center; gap: 7px; padding: 7px 8px; background: rgba(255,255,255,0.04); min-height: 34px; }
 .toolIcon { width: 1.35em; display: inline-block; text-align: center; flex: 0 0 auto; }
 .controlGroup { border-top: 1px solid var(--line); padding-top: 10px; display: grid; gap: 8px; }
 .rangeRow { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
 .feedbackCard { background: rgba(255,255,255,0.05); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
 .feedbackCard p, .card p { margin: 6px 0; font-size: 13px; color: var(--muted); line-height: 1.35; }
+.toolInfo h3 { margin-bottom: 6px; }
+.toolInfo p { font-size: 12px; }
+.toolGuidance { border-top: 1px solid var(--line); padding-top: 8px; line-height: 1.35; }
 .planet-column { display: grid; grid-template-rows: minmax(0, 1fr) auto auto; gap: 10px; min-width: 0; min-height: 0; overflow: hidden; }
 .planetStage { position: relative; overflow: hidden; display: grid; grid-template-rows: minmax(0, 1fr) auto; padding: 0; background: radial-gradient(circle at center, rgba(28,62,82,0.58), rgba(4,10,16,0.88)); }
 #planet-canvas { width: 100%; height: 100%; min-height: 420px; display: block; cursor: crosshair; touch-action: none; grid-row: 1; background: transparent; }
@@ -177,7 +180,7 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
 <div class="app">
   <header class="topbar">
     <div class="brand">
-      <strong id="build-label">WSG Engine v2 Build 0.1.7 - Classic Parity Functional Hotfix</strong>
+      <strong id="build-label">WSG Engine v2 Build 0.1.8 - V1 Intervention Parity</strong>
       <span id="summary-line">Engine v2 Worker branch with Classic-style visual parity and functional boot hotfix.</span>
     </div>
     <label class="small headerTemplateControl" title="World template">
@@ -224,10 +227,16 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
         <input id="tool-strength" type="range" min="0.2" max="2" step="0.1" value="1">
       </div>
       <button id="apply-tool-button" class="primary" type="button">Apply Tool to Selected</button>
+      <div class="feedbackCard toolInfo">
+        <h3>Selected Tool</h3>
+        <p id="tool-description">Inspect a cell and show local physical state without mutating the planet.</p>
+        <p id="tool-preview" class="small">Preview: click a cell to inspect it without changing state.</p>
+        <p id="tool-guidance" class="small toolGuidance">Best use, validity, delayed consequence, and affected layers update here.</p>
+      </div>
       <div class="feedbackCard">
         <h3>Quick Start</h3>
         <p>Generate planet. Select a tool. Click the globe. Step or Run time. Inspect consequences.</p>
-        <p class="small">The Worker owns state, tool application, probes, summaries, and render data. This page is presentation only.</p>
+        <p class="small">The Worker owns state, tool application, probes, summaries, validation, and render data. This page is presentation only.</p>
       </div>
     </aside>
 
@@ -296,10 +305,10 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
 
   <footer class="footer">
     <span>Engine v2 compact static Worker build. Three files only. Canvas 2D main-thread renderer; Worker-owned simulation state; no build tooling or imported asset bundles.</span>
-    <span>Classic parity functional hotfix</span>
+    <span>V1 intervention parity</span>
   </footer>
 </div>
 
-<script defer src="./app.js?v=0.1.7"></script>
+<script defer src="./app.js?v=0.1.8"></script>
 </body>
 </html>

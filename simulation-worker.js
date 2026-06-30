@@ -7,10 +7,10 @@
 /* ============================================================
    Protocol constants
    Source section: message-protocol.js
-   Compacted for Engine v2 0.1.8.
+   Compacted for Engine v2 0.1.9.
    ============================================================ */
 
-const BUILD_LABEL = 'WSG Engine v2 Build 0.1.8 - V1 Intervention Parity';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.1.9 - Runtime Boot and Product Cleanup';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',
@@ -144,7 +144,7 @@ function makeEnvelope(type, payload = {}) {
 /* ============================================================
    Utility math
    Source section: util/math.js
-   Compacted for Engine v2 0.1.8.
+   Compacted for Engine v2 0.1.9.
    ============================================================ */
 
 function clamp(value, min, max) {
@@ -190,7 +190,7 @@ function finite01(value) {
 /* ============================================================
    Deterministic random
    Source section: util/random.js
-   Compacted for Engine v2 0.1.8.
+   Compacted for Engine v2 0.1.9.
    ============================================================ */
 
 function stringToSeed(input) {
@@ -228,7 +228,7 @@ function hashUnit(seed, a = 0, b = 0) {
 /* ============================================================
    Performance helpers
    Source section: util/perf.js
-   Compacted for Engine v2 0.1.8.
+   Compacted for Engine v2 0.1.9.
    ============================================================ */
 
 function nowMs() {
@@ -255,7 +255,7 @@ function estimateTypedPayloadBytes(payload) {
 /* ============================================================
    State schema
    Source section: state-schema.js
-   Compacted for Engine v2 0.1.8.
+   Compacted for Engine v2 0.1.9.
    ============================================================ */
 
 const STATE_SCHEMA_VERSION = 'engine-v2-state-schema-0.1.0';
@@ -484,7 +484,7 @@ function validateArrayShape(state) {
 /* ============================================================
    Mesh
    Source section: sim/mesh.js
-   Compacted for Engine v2 0.1.8.
+   Compacted for Engine v2 0.1.9.
    ============================================================ */
 
 
@@ -722,7 +722,7 @@ function recomputeDerivedDiagnostics(state, mesh) {
 /* ============================================================
    Summaries and signatures
    Source section: sim/summaries.js
-   Compacted for Engine v2 0.1.8.
+   Compacted for Engine v2 0.1.9.
    ============================================================ */
 
 
@@ -1018,7 +1018,7 @@ function localLimitingFactor(state, i) {
 /* ============================================================
    Generation
    Source section: sim/generation.js
-   Compacted for Engine v2 0.1.8.
+   Compacted for Engine v2 0.1.9.
    ============================================================ */
 
 
@@ -1200,7 +1200,7 @@ function seedEarthlikeLife(state, mesh) {
 /* ============================================================
    Physical systems
    Source section: sim/physical.js
-   Compacted for Engine v2 0.1.8.
+   Compacted for Engine v2 0.1.9.
    ============================================================ */
 
 
@@ -1235,7 +1235,7 @@ function computeHabitability(state, i) {
 /* ============================================================
    Water
    Source section: sim/water.js
-   Compacted for Engine v2 0.1.8.
+   Compacted for Engine v2 0.1.9.
    ============================================================ */
 
 
@@ -1289,7 +1289,7 @@ function stepWater(state, mesh) {
 /* ============================================================
    Primitive life
    Source section: sim/life.js
-   Compacted for Engine v2 0.1.8.
+   Compacted for Engine v2 0.1.9.
    ============================================================ */
 
 
@@ -1353,7 +1353,7 @@ function stepLife(state, mesh) {
 /* ============================================================
    Ecosystems
    Source section: sim/ecosystems.js
-   Compacted for Engine v2 0.1.8.
+   Compacted for Engine v2 0.1.9.
    ============================================================ */
 
 
@@ -1374,7 +1374,7 @@ function stepEcosystems(state) {
 /* ============================================================
    Stewardship
    Source section: sim/stewardship.js
-   Compacted for Engine v2 0.1.8.
+   Compacted for Engine v2 0.1.9.
    ============================================================ */
 
 
@@ -1393,7 +1393,7 @@ function stepStewardship(state) {
 /* ============================================================
    Civilisation diagnostics
    Source section: sim/civilisation.js
-   Compacted for Engine v2 0.1.8.
+   Compacted for Engine v2 0.1.9.
    ============================================================ */
 
 
@@ -1417,7 +1417,7 @@ function stepCivilisation(state) {
 /* ============================================================
    Tools
    Source section: sim/tools.js
-   Compacted for Engine v2 0.1.8.
+   Compacted for Engine v2 0.1.9.
    ============================================================ */
 
 
@@ -1744,7 +1744,7 @@ function limitingFactor(state, i) {
 /* ============================================================
    Probes
    Source section: sim/probes.js
-   Compacted for Engine v2 0.1.8.
+   Compacted for Engine v2 0.1.9.
    ============================================================ */
 
 

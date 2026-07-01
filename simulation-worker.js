@@ -10,7 +10,7 @@
    Compacted for Engine v2 0.2.1.
    ============================================================ */
 
-const BUILD_LABEL = 'WSG Engine v2 Build 0.2.2 - High-Resolution Spherical Renderer';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.2.3 - Coherent Planet Surface';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',
@@ -114,7 +114,16 @@ const LAYERS = Object.freeze([
   { id: 'civilisationStress', label: 'Civilisation Stress' },
   { id: 'collapseRisk', label: 'Collapse Risk' },
   { id: 'recoveryCapacity', label: 'Recovery Capacity' },
-  { id: 'populationIndex', label: 'Population Index' }
+  { id: 'populationIndex', label: 'Population Index' },
+  { id: 'terrainClass', label: 'Terrain Class' },
+  { id: 'oceanDepth', label: 'Ocean Depth Proxy' },
+  { id: 'shallowWater', label: 'Shallow Water / Shelf' },
+  { id: 'coastProximity', label: 'Coast Proximity' },
+  { id: 'landRelief', label: 'Land Relief Proxy' },
+  { id: 'aridityProxy', label: 'Aridity Proxy' },
+  { id: 'wetnessProxy', label: 'Wetness Proxy' },
+  { id: 'vegetationPotential', label: 'Vegetation Potential' },
+  { id: 'iceType', label: 'Ice Type' },
 ]);
 
 const TOOLS = Object.freeze([
@@ -145,7 +154,8 @@ const PROBES = Object.freeze([
   { id: 'no_dom_in_worker', label: 'No UI access in worker check' },
   { id: 'render_data_finite', label: 'Render-data finite/bounded check' },
   { id: 'visual_resolution', label: 'Scientific visual resolution check' },
-  { id: 'high_resolution_spherical_renderer', label: 'High-resolution spherical renderer health check' }
+  { id: 'high_resolution_spherical_renderer', label: 'High-resolution spherical renderer health check' },
+  { id: 'coherent_planet_surface', label: 'Coherent planet surface health check' }
 ]);
 
 function makeEnvelope(type, payload = {}) {
@@ -331,6 +341,13 @@ const SIM_ARRAY_FIELDS = Object.freeze([
   'biosphereHealth',
   'slopeProxy',
   'coastProximity',
+  'oceanDepth',
+  'shallowWater',
+  'landRelief',
+  'aridityProxy',
+  'wetnessProxy',
+  'vegetationPotential',
+  'iceType',
   'dirtyCells'
 ]);
 
@@ -380,7 +397,14 @@ const RENDER_ARRAY_FIELDS = Object.freeze([
   'extinctionRisk',
   'biosphereHealth',
   'slopeProxy',
-  'coastProximity'
+  'coastProximity',
+  'oceanDepth',
+  'shallowWater',
+  'landRelief',
+  'aridityProxy',
+  'wetnessProxy',
+  'vegetationPotential',
+  'iceType'
 ]);
 
 function createSimulationState(mesh, options = {}) {
@@ -426,7 +450,7 @@ function createSimulationState(mesh, options = {}) {
   };
 
   for (const field of SIM_ARRAY_FIELDS) {
-    if (field === 'biomeClass' || field === 'terrainClass' || field === 'dirtyCells') {
+    if (field === 'biomeClass' || field === 'terrainClass' || field === 'iceType' || field === 'dirtyCells') {
       state[field] = new Uint8Array(count);
     } else {
       state[field] = new Float32Array(count);
@@ -736,21 +760,52 @@ function meshSignature(mesh) {
 
 
 
+
 function updateVisualProxyFields(state, mesh) {
-  for (let i = 0; i < state.cellCount; i += 1) {
+  const count = state.cellCount;
+  for (let i = 0; i < count; i += 1) {
     const offset = i * 3;
     let maxSlope = 0;
     let coastHits = 0;
+    let landNeighbours = 0;
+    let waterNeighbours = 0;
+    const selfWater = state.water[i] >= 0.50;
     for (let k = 0; k < 3; k += 1) {
       const n = mesh.neighbours[offset + k];
       if (n >= 0) {
         maxSlope = Math.max(maxSlope, Math.abs(state.elevation[i] - state.elevation[n]));
-        const waterCross = (state.water[i] >= 0.50) !== (state.water[n] >= 0.50);
-        if (waterCross) coastHits += 1;
+        const neighbourWater = state.water[n] >= 0.50;
+        if (neighbourWater) waterNeighbours += 1; else landNeighbours += 1;
+        if (selfWater !== neighbourWater) coastHits += 1;
       }
     }
-    state.slopeProxy[i] = clamp01(maxSlope * 5.5);
-    state.coastProximity[i] = clamp01(coastHits / 3 + smoothstep(0.25, 0.56, state.water[i]) * smoothstep(0.90, 0.45, state.water[i]) * 0.45);
+    const water = clamp01(state.water[i]);
+    const ice = clamp01(state.ice[i]);
+    const elev = clamp01(state.elevation[i]);
+    const rainfall = clamp01(state.rainfall[i]);
+    const humidity = clamp01(state.humidity[i]);
+    const heat = clamp01(state.heatStress[i]);
+    const nutrient = clamp01(state.nutrientLevel[i]);
+    const waterAccess = clamp01(state.waterAccess[i]);
+    const oceanDepth = water > 0.50 ? clamp01((water - 0.50) / 0.50) : 0;
+    const shelf = water > 0.32 ? clamp01((1 - oceanDepth) * 0.68 + (coastHits / 3) * 0.55 + smoothstep(0.30, 0.54, water) * 0.25) : 0;
+    const coast = clamp01(coastHits / 3 + shelf * 0.35 + (selfWater ? landNeighbours : waterNeighbours) / 3 * 0.25);
+    const slope = clamp01(maxSlope * 6.5);
+    const relief = clamp01(slope * 0.58 + smoothstep(0.56, 0.86, elev) * 0.42);
+    const aridity = clamp01(heat * 0.34 + (1 - rainfall) * 0.36 + (1 - humidity) * 0.28 + (1 - waterAccess) * 0.16 - water * 0.18 - ice * 0.12);
+    const wetness = clamp01(humidity * 0.32 + rainfall * 0.32 + waterAccess * 0.24 + state.runoff[i] * 0.12 - heat * 0.18 - ice * 0.12);
+    const vegetation = clamp01((wetness * 0.38 + state.habitability[i] * 0.34 + nutrient * 0.20 + state.primitiveLife[i] * 0.18) * (1 - aridity * 0.55) * (1 - ice * 0.78));
+    state.oceanDepth[i] = oceanDepth;
+    state.shallowWater[i] = shelf;
+    state.slopeProxy[i] = slope;
+    state.coastProximity[i] = coast;
+    state.landRelief[i] = relief;
+    state.aridityProxy[i] = aridity;
+    state.wetnessProxy[i] = wetness;
+    state.vegetationPotential[i] = vegetation;
+    state.iceType[i] = ice > 0.24 ? (water > 0.50 ? 1 : 2) : 0;
+    state.terrainClass[i] = deriveTerrainClass(state, i);
+    state.biomeClass[i] = state.terrainClass[i];
   }
 }
 
@@ -903,6 +958,15 @@ function computeSelectedCellSummary(state, mesh, cellId = state.selectedCell) {
     neighbours: Array.from(mesh.neighbours.slice(id * 3, id * 3 + 3)).filter((v) => v >= 0),
     elevation: state.elevation[id],
     terrainClass: state.terrainClass[id],
+    terrainClassLabel: terrainClassName(state.terrainClass[id]),
+    oceanDepth: state.oceanDepth[id],
+    shallowWater: state.shallowWater[id],
+    coastProximity: state.coastProximity[id],
+    landRelief: state.landRelief[id],
+    aridityProxy: state.aridityProxy[id],
+    wetnessProxy: state.wetnessProxy[id],
+    vegetationPotential: state.vegetationPotential[id],
+    iceType: state.iceType[id],
     water: state.water[id],
     ice: state.ice[id],
     temperature: state.temperature[id],
@@ -1122,12 +1186,72 @@ function profileFor(options) {
   return { template, archetype, water, temp, greenhouse, ice, nutrient, rough };
 }
 
+
 function terrainNoise(seed, i, x, y, z, rough) {
-  const n1 = Math.sin(3.1 * x + 1.7 * y + seed * 0.000001);
-  const n2 = Math.sin(4.9 * z - 2.1 * x + seed * 0.000003);
-  const n3 = Math.cos(7.3 * y + 2.8 * z - seed * 0.000002);
-  const grain = hashUnit(seed, i, 17) * 2 - 1;
-  return 0.50 + 0.20 * n1 + 0.14 * n2 + 0.10 * n3 + (0.08 + 0.18 * rough) * grain;
+  // Coherent deterministic spherical terrain. Low-frequency fields create
+  // continents and basins; fine grain is deliberately weak so Natural Planet
+  // does not become salt-and-pepper noise.
+  const s1 = seed * 0.0000017;
+  const s2 = seed * 0.0000029;
+  const continental =
+    0.38 * Math.sin(1.25 * x + 0.75 * y - 0.55 * z + s1) +
+    0.28 * Math.cos(-0.80 * x + 1.10 * y + 1.35 * z - s2) +
+    0.18 * Math.sin(1.90 * x - 1.45 * y + 0.70 * z + s1 * 0.7);
+  const basins =
+    0.16 * Math.cos(2.40 * z + 1.55 * x + s2 * 1.3) +
+    0.10 * Math.sin(2.80 * y - 1.70 * z + s1 * 1.9);
+  const ridge = Math.abs(Math.sin(4.20 * x + 2.50 * z - 1.60 * y + s2)) - 0.5;
+  const fine = (hashUnit(seed, i, 17) - 0.5) * (0.018 + 0.035 * rough);
+  return clamp01(0.50 + continental + basins + ridge * (0.06 + rough * 0.08) + fine);
+}
+
+function smoothStateField(state, mesh, field, passes = 1, strength = 0.5) {
+  const arr = state[field];
+  if (!arr || !state.scratchFlow) return;
+  const scratch = state.scratchFlow;
+  const count = state.cellCount;
+  const alpha = clamp01(strength);
+  for (let pass = 0; pass < passes; pass += 1) {
+    scratch.set(arr);
+    for (let i = 0; i < count; i += 1) {
+      const offset = i * 3;
+      let sum = scratch[i];
+      let nCount = 1;
+      for (let k = 0; k < 3; k += 1) {
+        const n = mesh.neighbours[offset + k];
+        if (n >= 0) { sum += scratch[n]; nCount += 1; }
+      }
+      arr[i] = clamp01(lerp(scratch[i], sum / nCount, alpha));
+    }
+  }
+}
+
+function terrainClassName(code) {
+  const labels = ['deep ocean', 'mid ocean', 'shallow shelf', 'coast', 'lowland', 'highland', 'mountain', 'land ice / snow', 'sea ice', 'arid / desert', 'wet or vegetation potential'];
+  return labels[code] || 'unclassified';
+}
+
+function deriveTerrainClass(state, i) {
+  const water = state.water[i];
+  const elev = state.elevation[i];
+  const ice = state.ice[i];
+  const oceanDepth = state.oceanDepth[i];
+  const shallow = state.shallowWater[i];
+  const coast = state.coastProximity[i];
+  const arid = state.aridityProxy[i];
+  const veg = state.vegetationPotential[i];
+  const relief = state.landRelief[i];
+  if (water > 0.50 && ice > 0.36) return 8;
+  if (water > 0.72 && oceanDepth > 0.58) return 0;
+  if (water > 0.56 && shallow < 0.50) return 1;
+  if (water > 0.46 || shallow > 0.54) return 2;
+  if (ice > 0.40) return 7;
+  if (coast > 0.52) return 3;
+  if (relief > 0.78 || elev > 0.80) return 6;
+  if (elev > 0.64 || relief > 0.48) return 5;
+  if (arid > 0.58 && veg < 0.36) return 9;
+  if (veg > 0.52) return 10;
+  return 4;
 }
 
 function earthlikeMask(lonDeg, latDeg) {
@@ -1159,52 +1283,63 @@ function generateWorld(state, mesh, options = {}) {
   state.year = 0;
   state.selectedCell = -1;
   state.lastAction = `Generated ${templateId.replaceAll('_', ' ')} with ${archetypeId.replaceAll('_', ' ')} archetype at ${state.meshQualityLabel}.`;
-  state.lastChange = 'What changed: full planet generation reset all Worker-owned state arrays and render data.';
-  state.lastWatch = 'Watch water, ice, temperature, habitability, life viability, and selected tool guidance.';
+  state.lastChange = 'What changed: coherent model-derived planet surface regenerated across all Worker-owned arrays.';
+  state.lastWatch = 'Watch terrain class, ocean depth, coastline, ice, aridity, wetness, habitability, and selected tool guidance.';
   state.lastLimitingFactor = 'new world';
 
+  // Pass 1: coherent elevation field only. Broad continents and basins come first.
   for (let i = 0; i < mesh.count; i += 1) {
     const x = mesh.centerX[i];
     const y = mesh.centerY[i];
     const z = mesh.centerZ[i];
-    const latAbs = Math.abs(mesh.latitude[i]) / 90;
     const lon = mesh.longitude[i];
     const lat = mesh.latitude[i];
     state.craterPressure[i] = 0;
     state.dirtyCells[i] = 0;
     let elevation = terrainNoise(seed, i, x, y, z, profile.rough);
     if (templateId === 'earthlike') {
-      elevation = 0.42 + 0.32 * earthlikeMask(lon, lat) + 0.12 * (hashUnit(seed, i, 91) - 0.5);
+      elevation = 0.42 + 0.34 * earthlikeMask(lon, lat) + 0.025 * (hashUnit(seed, i, 91) - 0.5);
     }
-    elevation = clamp01((elevation - 0.18) / 0.82);
+    elevation = clamp01((elevation - 0.13) / 0.86);
     if (profile.archetype.rough > 0.65) {
-      elevation = clamp01(elevation + 0.14 * Math.sin(12 * x + 8 * z));
+      const ridges = Math.abs(Math.sin(7.0 * x + 5.5 * z - 2.8 * y + seed * 0.000004));
+      elevation = clamp01(elevation + 0.08 * ridges);
     }
     state.elevation[i] = elevation;
+  }
+  smoothStateField(state, mesh, 'elevation', profile.rough < 0.35 ? 4 : profile.rough < 0.55 ? 3 : 2, profile.rough < 0.45 ? 0.62 : 0.48);
 
+  // Pass 2: derive water, climate proxies, life support, and civilisation proxies from coherent terrain.
+  for (let i = 0; i < mesh.count; i += 1) {
+    const latAbs = Math.abs(mesh.latitude[i]) / 90;
+    const elevation = state.elevation[i];
     const ocean = elevation < seaLevel ? 1 : 0;
-    const coastPotential = 1 - Math.abs(elevation - seaLevel) / 0.16;
-    state.water[i] = ocean ? clamp01(0.66 + 0.30 * (seaLevel - elevation) / 0.40) : clamp01(Math.max(0, coastPotential) * 0.18 * profile.water);
+    const depthBelowSea = clamp01((seaLevel - elevation) / 0.42);
+    const coastPotential = clamp01(1 - Math.abs(elevation - seaLevel) / 0.14);
+    state.water[i] = ocean ? clamp01(0.58 + 0.40 * depthBelowSea) : clamp01(coastPotential * 0.16 * profile.water + (profile.water - 0.50) * 0.08);
 
-    const elevationCooling = elevation > seaLevel ? (elevation - seaLevel) * 0.35 : 0;
-    const baseTemp = profile.temp + (1 - latAbs) * 0.22 - latAbs * 0.26 + profile.greenhouse * 0.16 - elevationCooling;
-    const temp = clamp01(baseTemp + (hashUnit(seed, i, 31) - 0.5) * 0.08);
+    const elevationCooling = elevation > seaLevel ? (elevation - seaLevel) * 0.32 : 0;
+    const latitudeCooling = latAbs * 0.28;
+    const baseTemp = profile.temp + (1 - latAbs) * 0.20 - latitudeCooling + profile.greenhouse * 0.15 - elevationCooling;
+    const tempNoise = (hashUnit(seed, i, 31) - 0.5) * 0.035;
+    const temp = clamp01(baseTemp + tempNoise);
     state.temperature[i] = temp;
-    state.greenhousePressure[i] = clamp01(profile.greenhouse + 0.10 * (hashUnit(seed, i, 57) - 0.5));
+    state.greenhousePressure[i] = clamp01(profile.greenhouse + 0.045 * (hashUnit(seed, i, 57) - 0.5));
 
-    const polarFreeze = smoothstep(0.46, 0.92, latAbs);
-    const freeze = clamp01(profile.ice * 0.45 + polarFreeze * 0.45 + smoothstep(0.42, 0.12, temp) * 0.50);
-    state.ice[i] = clamp01(freeze * (0.25 + 0.75 * state.water[i]));
+    const polarFreeze = smoothstep(0.50, 0.92, latAbs);
+    const freeze = clamp01(profile.ice * 0.40 + polarFreeze * 0.46 + smoothstep(0.40, 0.14, temp) * 0.48 + smoothstep(0.66, 0.90, elevation) * 0.08);
+    state.ice[i] = clamp01(freeze * (0.16 + 0.68 * state.water[i] + 0.16 * (elevation > seaLevel ? 1 : 0)));
 
-    state.humidity[i] = clamp01(state.water[i] * 0.55 + (1 - latAbs) * 0.22 + profile.greenhouse * 0.12 - state.ice[i] * 0.22);
-    state.rainfall[i] = clamp01(state.humidity[i] * (0.55 + 0.35 * (1 - latAbs)) - Math.max(0, elevation - seaLevel) * 0.10);
-    state.runoff[i] = clamp01(Math.max(0, state.rainfall[i] - 0.20) * (0.30 + elevation * 0.55));
-    state.waterFlow[i] = clamp01(state.runoff[i] + state.water[i] * 0.28);
-    state.cloudCover[i] = clamp01(state.humidity[i] * 0.55 + state.rainfall[i] * 0.25);
-    state.nutrientLevel[i] = clamp01(profile.nutrient + 0.14 * state.runoff[i] + 0.08 * (1 - elevation) + (hashUnit(seed, i, 77) - 0.5) * 0.12);
+    const windShadow = clamp01(state.elevation[i] > seaLevel ? (state.elevation[i] - seaLevel) * 0.22 : 0);
+    state.humidity[i] = clamp01(state.water[i] * 0.50 + (1 - latAbs) * 0.22 + profile.greenhouse * 0.10 - state.ice[i] * 0.20);
+    state.rainfall[i] = clamp01(state.humidity[i] * (0.54 + 0.34 * (1 - latAbs)) - windShadow + coastPotential * 0.06);
+    state.runoff[i] = clamp01(Math.max(0, state.rainfall[i] - 0.18) * (0.28 + elevation * 0.55));
+    state.waterFlow[i] = clamp01(state.runoff[i] + state.water[i] * 0.28 + coastPotential * 0.04);
+    state.cloudCover[i] = clamp01(state.humidity[i] * 0.42 + state.rainfall[i] * 0.30 + state.water[i] * 0.06);
+    state.nutrientLevel[i] = clamp01(profile.nutrient + 0.12 * state.runoff[i] + 0.08 * (1 - elevation) + 0.04 * coastPotential + (hashUnit(seed, i, 77) - 0.5) * 0.035);
 
-    const tempFit = 1 - Math.abs(temp - 0.55) / 0.42;
-    const waterFit = clamp01(state.water[i] * 0.68 + state.rainfall[i] * 0.38);
+    const tempFit = clamp01(1 - Math.abs(temp - 0.55) / 0.42);
+    const waterFit = clamp01(state.water[i] * 0.54 + state.rainfall[i] * 0.38 + state.runoff[i] * 0.10);
     state.habitability[i] = clamp01(tempFit * 0.42 + waterFit * 0.28 + state.nutrientLevel[i] * 0.22 - state.ice[i] * 0.30);
 
     state.primitiveLife[i] = 0;
@@ -1219,7 +1354,7 @@ function generateWorld(state, mesh, options = {}) {
     state.habitatContinuity[i] = clamp01(state.habitability[i] * 0.40 + (1 - state.ice[i]) * 0.20);
     state.stewardshipPressure[i] = 0;
     state.restorationPriority[i] = clamp01((1 - state.habitability[i]) * 0.35);
-    state.waterAccess[i] = clamp01(state.water[i] * 0.65 + state.rainfall[i] * 0.25 + state.runoff[i] * 0.15);
+    state.waterAccess[i] = clamp01(state.water[i] * 0.62 + state.rainfall[i] * 0.24 + state.runoff[i] * 0.18);
     state.foodSupport[i] = clamp01(state.habitability[i] * 0.60 + state.producerMats[i] * 0.20 + state.waterAccess[i] * 0.12);
     state.civilisationSuitability[i] = clamp01(state.habitability[i] * 0.52 + (1 - ocean) * 0.20 + state.waterAccess[i] * 0.15);
     state.settlements[i] = 0;
@@ -1228,14 +1363,13 @@ function generateWorld(state, mesh, options = {}) {
     state.civilisationStress[i] = clamp01(1 - state.civilisationSuitability[i]);
     state.collapseRisk[i] = state.civilisationStress[i] * 0.20;
     state.recoveryCapacity[i] = clamp01(state.recoveryPotential[i] * 0.50);
-
-    if (state.water[i] > 0.55) state.terrainClass[i] = 0;
-    else if (elevation < seaLevel + 0.05) state.terrainClass[i] = 1;
-    else if (elevation < 0.62) state.terrainClass[i] = 2;
-    else if (elevation < 0.78) state.terrainClass[i] = 3;
-    else state.terrainClass[i] = 4;
-    state.biomeClass[i] = state.terrainClass[i];
   }
+
+  // Pass 3: light relaxation for continuous proxies, then semantic surface classes.
+  smoothStateField(state, mesh, 'humidity', 1, 0.36);
+  smoothStateField(state, mesh, 'rainfall', 1, 0.36);
+  smoothStateField(state, mesh, 'nutrientLevel', 1, 0.22);
+  smoothStateField(state, mesh, 'habitability', 1, 0.22);
 
   if (profile.template.life > 0) {
     seedEarthlikeLife(state, mesh);
@@ -2038,6 +2172,22 @@ function executeProbe(probeId, ctx, startSig) {
         ? `Render data supports the high-resolution texture-first spherical renderer at ${ctx.mesh.count} cells; topology remains available for Diagnostic mode.`
         : 'Render data, layer set, or active mesh count is incomplete for texture-first cleanup.'
     };
+  }
+
+
+  if (probeId === 'coherent_planet_surface') {
+    const render = buildRenderData(ctx.state, ctx.mesh);
+    const required = ['terrainClass', 'oceanDepth', 'shallowWater', 'landRelief', 'aridityProxy', 'wetnessProxy', 'vegetationPotential', 'iceType', 'coastProximity', 'slopeProxy'];
+    const missing = required.filter((field) => !render[field] || render[field].length !== ctx.mesh.count);
+    const classes = new Set(Array.from(ctx.state.terrainClass));
+    let waterish = 0, landish = 0, iceish = 0, coastish = 0;
+    for (let i = 0; i < ctx.mesh.count; i += Math.max(1, Math.floor(ctx.mesh.count / 512))) {
+      if (ctx.state.water[i] > 0.50) waterish += 1; else landish += 1;
+      if (ctx.state.ice[i] > 0.30) iceish += 1;
+      if (ctx.state.coastProximity[i] > 0.25) coastish += 1;
+    }
+    const ok = missing.length === 0 && classes.size >= 5 && waterish > 0 && landish > 0 && coastish > 0;
+    return { status: ok ? 'pass' : 'warn', detail: ok ? `Coherent surface fields present; ${classes.size} semantic terrain classes detected; coast, land, water, relief, wetness, aridity and ice proxies available.` : `Surface semantics are present but broad class diversity may be low. Missing: ${missing.join(', ') || 'none'}; classes ${classes.size}; water samples ${waterish}; land samples ${landish}; coast samples ${coastish}.` };
   }
 
   if (probeId === 'render_data_finite') {

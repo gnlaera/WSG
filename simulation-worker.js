@@ -7,10 +7,10 @@
 /* ============================================================
    Protocol constants
    Source section: message-protocol.js
-   Compacted for Engine v2 0.2.0.
+   Compacted for Engine v2 0.2.1.
    ============================================================ */
 
-const BUILD_LABEL = 'WSG Engine v2 Build 0.2.0.1 - Canvas Renderer Boot Hotfix';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.2.1 - Texture-First Natural Planet Cleanup';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',
@@ -146,7 +146,8 @@ const PROBES = Object.freeze([
   { id: 'intervention_parity', label: 'Intervention parity probe' },
   { id: 'no_dom_in_worker', label: 'No UI access in worker probe' },
   { id: 'render_data_finite', label: 'Render-data finite/bounded probe' },
-  { id: 'visual_resolution', label: 'Scientific visual resolution probe' }
+  { id: 'visual_resolution', label: 'Scientific visual resolution probe' },
+  { id: 'texture_first_planet', label: 'Texture-first Natural Planet cleanup probe' }
 ]);
 
 function makeEnvelope(type, payload = {}) {
@@ -157,7 +158,7 @@ function makeEnvelope(type, payload = {}) {
 /* ============================================================
    Utility math
    Source section: util/math.js
-   Compacted for Engine v2 0.2.0.
+   Compacted for Engine v2 0.2.1.
    ============================================================ */
 
 function clamp(value, min, max) {
@@ -203,7 +204,7 @@ function finite01(value) {
 /* ============================================================
    Deterministic random
    Source section: util/random.js
-   Compacted for Engine v2 0.2.0.
+   Compacted for Engine v2 0.2.1.
    ============================================================ */
 
 function stringToSeed(input) {
@@ -241,7 +242,7 @@ function hashUnit(seed, a = 0, b = 0) {
 /* ============================================================
    Performance helpers
    Source section: util/perf.js
-   Compacted for Engine v2 0.2.0.
+   Compacted for Engine v2 0.2.1.
    ============================================================ */
 
 function nowMs() {
@@ -268,7 +269,7 @@ function estimateTypedPayloadBytes(payload) {
 /* ============================================================
    State schema
    Source section: state-schema.js
-   Compacted for Engine v2 0.2.0.
+   Compacted for Engine v2 0.2.1.
    ============================================================ */
 
 const STATE_SCHEMA_VERSION = 'engine-v2-state-schema-0.1.0';
@@ -511,7 +512,7 @@ function validateArrayShape(state) {
 /* ============================================================
    Mesh
    Source section: sim/mesh.js
-   Compacted for Engine v2 0.2.0.
+   Compacted for Engine v2 0.2.1.
    ============================================================ */
 
 
@@ -788,7 +789,7 @@ function recomputeDerivedDiagnostics(state, mesh) {
 /* ============================================================
    Summaries and signatures
    Source section: sim/summaries.js
-   Compacted for Engine v2 0.2.0.
+   Compacted for Engine v2 0.2.1.
    ============================================================ */
 
 
@@ -1090,7 +1091,7 @@ function localLimitingFactor(state, i) {
 /* ============================================================
    Generation
    Source section: sim/generation.js
-   Compacted for Engine v2 0.2.0.
+   Compacted for Engine v2 0.2.1.
    ============================================================ */
 
 
@@ -1274,7 +1275,7 @@ function seedEarthlikeLife(state, mesh) {
 /* ============================================================
    Physical systems
    Source section: sim/physical.js
-   Compacted for Engine v2 0.2.0.
+   Compacted for Engine v2 0.2.1.
    ============================================================ */
 
 
@@ -1309,7 +1310,7 @@ function computeHabitability(state, i) {
 /* ============================================================
    Water
    Source section: sim/water.js
-   Compacted for Engine v2 0.2.0.
+   Compacted for Engine v2 0.2.1.
    ============================================================ */
 
 
@@ -1363,7 +1364,7 @@ function stepWater(state, mesh) {
 /* ============================================================
    Primitive life
    Source section: sim/life.js
-   Compacted for Engine v2 0.2.0.
+   Compacted for Engine v2 0.2.1.
    ============================================================ */
 
 
@@ -1427,7 +1428,7 @@ function stepLife(state, mesh) {
 /* ============================================================
    Ecosystems
    Source section: sim/ecosystems.js
-   Compacted for Engine v2 0.2.0.
+   Compacted for Engine v2 0.2.1.
    ============================================================ */
 
 
@@ -1448,7 +1449,7 @@ function stepEcosystems(state) {
 /* ============================================================
    Stewardship
    Source section: sim/stewardship.js
-   Compacted for Engine v2 0.2.0.
+   Compacted for Engine v2 0.2.1.
    ============================================================ */
 
 
@@ -1467,7 +1468,7 @@ function stepStewardship(state) {
 /* ============================================================
    Civilisation diagnostics
    Source section: sim/civilisation.js
-   Compacted for Engine v2 0.2.0.
+   Compacted for Engine v2 0.2.1.
    ============================================================ */
 
 
@@ -1491,7 +1492,7 @@ function stepCivilisation(state) {
 /* ============================================================
    Tools
    Source section: sim/tools.js
-   Compacted for Engine v2 0.2.0.
+   Compacted for Engine v2 0.2.1.
    ============================================================ */
 
 
@@ -1818,7 +1819,7 @@ function limitingFactor(state, i) {
 /* ============================================================
    Probes
    Source section: sim/probes.js
-   Compacted for Engine v2 0.2.0.
+   Compacted for Engine v2 0.2.1.
    ============================================================ */
 
 
@@ -2020,6 +2021,25 @@ function executeProbe(probeId, ctx, startSig) {
     const shapeFailures = validateArrayShape(ctx.state);
     const ok = ctx.mesh.count === profile.targetFaces && ctx.mesh.count >= 1280 && shapeFailures.length === 0 && ctx.mesh.frequency === profile.frequency;
     return { status: ok ? 'pass' : 'fail', detail: ok ? `${profile.label}; ${ctx.mesh.count} active triangle cells; arrays match active cell count.` : `Expected ${profile.targetFaces} cells for ${profile.label}; got ${ctx.mesh.count}. ${shapeFailures.join('; ')}` };
+  }
+
+  if (probeId === 'texture_first_planet') {
+    const summary = computeSummary(ctx.state, ctx.mesh);
+    const render = buildRenderData(ctx.state, ctx.mesh);
+    const ok = render.count === ctx.mesh.count
+      && summary.cellCount === ctx.mesh.count
+      && ctx.mesh.count >= 2880
+      && render.layerIds.includes('elevation')
+      && render.layerIds.includes('temperature')
+      && render.layerIds.includes('collapseRisk')
+      && render.centerX.length === ctx.mesh.count
+      && render.triangleX.length === ctx.mesh.count * 3;
+    return {
+      status: ok ? 'pass' : 'fail',
+      detail: ok
+        ? `Render data supports texture-first Natural Planet cleanup at ${ctx.mesh.count} cells; topology remains available for Diagnostic mode.`
+        : 'Render data, layer set, or active mesh count is incomplete for texture-first cleanup.'
+    };
   }
 
   if (probeId === 'render_data_finite') {

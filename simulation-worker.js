@@ -10,7 +10,7 @@
    Compacted for Engine v2 0.2.1.
    ============================================================ */
 
-const BUILD_LABEL = 'WSG Engine v2 Build 0.2.1 - Texture-First Natural Planet Cleanup';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.2.2 - High-Resolution Spherical Renderer';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',
@@ -66,14 +66,12 @@ const ARCHETYPES = Object.freeze([
 
 
 const MESH_QUALITY_OPTIONS = Object.freeze([
-  { id: 'performance', label: 'Performance - 1,280 faces', frequency: 8, targetFaces: 1280, default: false },
-  { id: 'standard', label: 'Standard - 2,880 faces', frequency: 12, targetFaces: 2880, default: true },
-  { id: 'high', label: 'High / Experimental - 5,120 faces', frequency: 16, targetFaces: 5120, default: false }
+  { id: 'highres', label: 'High Resolution - 11,520 triangle faces', frequency: 24, targetFaces: 11520, default: true }
 ]);
 
 function meshQualityProfile(id) {
-  const requested = String(id || 'standard');
-  return MESH_QUALITY_OPTIONS.find((item) => item.id === requested) || MESH_QUALITY_OPTIONS.find((item) => item.id === 'standard');
+  const requested = String(id || 'highres');
+  return MESH_QUALITY_OPTIONS.find((item) => item.id === requested) || MESH_QUALITY_OPTIONS[0];
 }
 
 const LAYERS = Object.freeze([
@@ -135,19 +133,19 @@ const TOOLS = Object.freeze([
 ]);
 
 const PROBES = Object.freeze([
-  { id: 'architecture_sanity', label: 'Architecture sanity probe' },
-  { id: 'worker_boot', label: 'Worker boot probe' },
-  { id: 'deterministic_generation', label: 'Deterministic generation probe' },
-  { id: 'snapshot_restore', label: 'Worker snapshot/restore probe' },
-  { id: 'procedural_lifeless', label: 'Procedural lifeless world probe' },
-  { id: 'earthlike_template', label: 'Earthlike template probe' },
-  { id: 'ecosystem_growth', label: 'Ecosystem growth probe' },
-  { id: 'civilisation_gate', label: 'Civilisation emergence gate probe' },
-  { id: 'intervention_parity', label: 'Intervention parity probe' },
-  { id: 'no_dom_in_worker', label: 'No UI access in worker probe' },
-  { id: 'render_data_finite', label: 'Render-data finite/bounded probe' },
-  { id: 'visual_resolution', label: 'Scientific visual resolution probe' },
-  { id: 'texture_first_planet', label: 'Texture-first Natural Planet cleanup probe' }
+  { id: 'architecture_sanity', label: 'Architecture sanity check' },
+  { id: 'worker_boot', label: 'Worker boot check' },
+  { id: 'deterministic_generation', label: 'Deterministic generation check' },
+  { id: 'snapshot_restore', label: 'Worker snapshot/restore check' },
+  { id: 'procedural_lifeless', label: 'Procedural lifeless world check' },
+  { id: 'earthlike_template', label: 'Earthlike template check' },
+  { id: 'ecosystem_growth', label: 'Ecosystem growth check' },
+  { id: 'civilisation_gate', label: 'Civilisation emergence gate check' },
+  { id: 'intervention_parity', label: 'Intervention parity check' },
+  { id: 'no_dom_in_worker', label: 'No UI access in worker check' },
+  { id: 'render_data_finite', label: 'Render-data finite/bounded check' },
+  { id: 'visual_resolution', label: 'Scientific visual resolution check' },
+  { id: 'high_resolution_spherical_renderer', label: 'High-resolution spherical renderer health check' }
 ]);
 
 function makeEnvelope(type, payload = {}) {
@@ -275,7 +273,7 @@ function estimateTypedPayloadBytes(payload) {
 const STATE_SCHEMA_VERSION = 'engine-v2-state-schema-0.1.0';
 
 const DEFAULT_CONFIG = Object.freeze({
-  defaultMeshQuality: 'standard',
+  defaultMeshQuality: 'highres',
   initialSeed: 'ENGINE-V2-001',
   yearPerStep: 1,
   maxAdvanceSteps: 250,
@@ -421,7 +419,7 @@ function createSimulationState(mesh, options = {}) {
       lastError: '',
       neighbourLinks: mesh.neighbourLinkCount,
       meshQuality: mesh.qualityId || DEFAULT_CONFIG.defaultMeshQuality,
-      meshQualityLabel: mesh.qualityLabel || 'Standard - 2,880 faces',
+      meshQualityLabel: mesh.qualityLabel || 'High Resolution - 11,520 triangle faces',
       meshFrequency: mesh.frequency || 12,
       performanceWarning: ''
     }
@@ -1825,7 +1823,7 @@ function limitingFactor(state, i) {
 
 function runProbe(probeId, ctx) {
   const probe = PROBES.find((item) => item.id === probeId);
-  if (!probe) return { id: probeId, label: probeId, status: 'fail', detail: 'Unknown probe.' };
+  if (!probe) return { id: probeId, label: probeId, status: 'fail', detail: 'Unknown health check.' };
   const snapshot = cloneState(ctx.state);
   const startSig = signatureState(ctx.state);
   try {
@@ -1833,7 +1831,7 @@ function runProbe(probeId, ctx) {
     restoreState(ctx.state, snapshot);
     const restoredSig = signatureState(ctx.state);
     if (restoredSig !== startSig) {
-      return { id: probeId, label: probe.label, status: 'fail', detail: `Probe did not restore active state: ${restoredSig} vs ${startSig}` };
+      return { id: probeId, label: probe.label, status: 'fail', detail: `Health check did not restore active state: ${restoredSig} vs ${startSig}` };
     }
     return { id: probeId, label: probe.label, ...result };
   } catch (error) {
@@ -2013,22 +2011,22 @@ function executeProbe(probeId, ctx, startSig) {
 
   if (probeId === 'no_dom_in_worker') {
     const ok = ctx.uiSurface === undefined && ctx.state && ctx.mesh;
-    return { status: ok ? 'pass' : 'fail', detail: ok ? 'Probe found simulation-only context.' : 'Unexpected UI surface detected.' };
+    return { status: ok ? 'pass' : 'fail', detail: ok ? 'Health check found simulation-only context.' : 'Unexpected UI surface detected.' };
   }
 
   if (probeId === 'visual_resolution') {
     const profile = meshQualityProfile(ctx.state.meshQuality || ctx.mesh.qualityId || DEFAULT_CONFIG.defaultMeshQuality);
     const shapeFailures = validateArrayShape(ctx.state);
-    const ok = ctx.mesh.count === profile.targetFaces && ctx.mesh.count >= 1280 && shapeFailures.length === 0 && ctx.mesh.frequency === profile.frequency;
+    const ok = ctx.mesh.count === profile.targetFaces && ctx.mesh.count >= 11520 && shapeFailures.length === 0 && ctx.mesh.frequency === profile.frequency;
     return { status: ok ? 'pass' : 'fail', detail: ok ? `${profile.label}; ${ctx.mesh.count} active triangle cells; arrays match active cell count.` : `Expected ${profile.targetFaces} cells for ${profile.label}; got ${ctx.mesh.count}. ${shapeFailures.join('; ')}` };
   }
 
-  if (probeId === 'texture_first_planet') {
+  if (probeId === 'high_resolution_spherical_renderer') {
     const summary = computeSummary(ctx.state, ctx.mesh);
     const render = buildRenderData(ctx.state, ctx.mesh);
     const ok = render.count === ctx.mesh.count
       && summary.cellCount === ctx.mesh.count
-      && ctx.mesh.count >= 2880
+      && ctx.mesh.count === 11520
       && render.layerIds.includes('elevation')
       && render.layerIds.includes('temperature')
       && render.layerIds.includes('collapseRisk')
@@ -2037,7 +2035,7 @@ function executeProbe(probeId, ctx, startSig) {
     return {
       status: ok ? 'pass' : 'fail',
       detail: ok
-        ? `Render data supports texture-first Natural Planet cleanup at ${ctx.mesh.count} cells; topology remains available for Diagnostic mode.`
+        ? `Render data supports the high-resolution texture-first spherical renderer at ${ctx.mesh.count} cells; topology remains available for Diagnostic mode.`
         : 'Render data, layer set, or active mesh count is incomplete for texture-first cleanup.'
     };
   }
@@ -2122,7 +2120,7 @@ function generateWithOptions(options = {}) {
   state.diagnostics.meshQuality = requestedQuality.id;
   state.diagnostics.meshQualityLabel = requestedQuality.label;
   state.diagnostics.meshFrequency = mesh.frequency || 0;
-  state.diagnostics.performanceWarning = mesh.count > 3000 ? 'High cell count: use Performance quality on slower browsers if render exceeds target.' : '';
+  state.diagnostics.performanceWarning = mesh.count > 9000 ? 'High-resolution 11,520-cell mesh active. Use optional diagnostics if render or interaction feels slow.' : '';
 }
 
 function ensureMeshOnly(qualityId = DEFAULT_CONFIG.defaultMeshQuality) {

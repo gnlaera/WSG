@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
-  <title>WSG Engine v2 Build 0.2.1 - Texture-First Natural Planet Cleanup</title>
+  <title>WSG Engine v2 Build 0.2.2 - High-Resolution Spherical Renderer</title>
   <style>
 :root {
   color-scheme: dark;
@@ -159,6 +159,42 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
 .panel-hidden { display: none !important; }
 .small-note { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
 .footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-top: 1px solid var(--line); background: rgba(3, 8, 13, 0.82); color: var(--muted); font-size: 12px; }
+
+body.left-collapsed { --left-w: 0px; }
+body.right-collapsed { --right-w: 0px; }
+body.left-collapsed .toolPanel { display: none; }
+body.right-collapsed .feedbackPanel { display: none; }
+body.left-collapsed .left-restore-rail,
+body.right-collapsed .right-restore-rail { display: flex; }
+body.topbar-compact .headerTemplateControl,
+body.topbar-compact .headerArchetypeControl,
+body.topbar-compact .layerControls,
+body.topbar-compact .seedHeaderControl { display: none; }
+body.bottom-info-collapsed .quick-start,
+body.bottom-info-collapsed .layerLegend { display: none; }
+.paneButton { padding: 4px 7px; border-radius: 8px; font-size: 11px; }
+.restore-rail { position: fixed; top: 50%; transform: translateY(-50%); z-index: 20; display: none; flex-direction: column; gap: 6px; }
+.left-restore-rail { left: 4px; }
+.right-restore-rail { right: 4px; }
+.restore-rail button { writing-mode: vertical-rl; text-orientation: mixed; padding: 10px 6px; background: rgba(12,24,36,0.94); }
+.floating-trends { position: fixed; right: 330px; bottom: 72px; width: min(520px, calc(100vw - 36px)); height: 330px; z-index: 30; display: flex; flex-direction: column; background: rgba(8,18,29,0.96); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+.floating-trends.panel-hidden { display: none; }
+.floating-trends.minimised { height: 42px; width: 310px; }
+.floating-trends.minimised .trends-body { display: none; }
+.trends-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); cursor: move; user-select: none; background: rgba(255,255,255,0.04); }
+.trends-header strong { font-size: 13px; }
+.trends-window-buttons { display: flex; gap: 4px; }
+.trends-window-buttons button { padding: 4px 7px; border-radius: 8px; font-size: 11px; }
+.trends-body { display: grid; grid-template-rows: auto 1fr auto; min-height: 0; padding: 8px; gap: 7px; }
+.trends-metrics { display: flex; flex-wrap: wrap; gap: 6px 10px; color: var(--muted); font-size: 11px; }
+.trends-metrics label { white-space: nowrap; display: flex; align-items: center; gap: 4px; }
+#trends-canvas { width: 100%; height: 180px; min-height: 160px; display: block; background: rgba(0,0,0,0.18); border: 1px solid var(--line); border-radius: 10px; }
+#trends-readout { font-size: 11px; color: var(--muted); min-height: 1.2em; }
+.panelTitleActions { display: flex; align-items: center; gap: 6px; }
+.playerDiagnosticsLabel { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+.compact-card.selected-cell-card { margin-bottom: 0; }
+.textureHealth { font-size: 11px; color: var(--muted); }
+
 @media (max-width: 1180px) {
   html, body { overflow: auto; }
   .app { min-height: 100%; height: auto; }
@@ -182,8 +218,8 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
 <div class="app">
   <header class="topbar">
     <div class="brand">
-      <strong id="build-label">WSG Engine v2 Build 0.2.1 - Texture-First Natural Planet Cleanup</strong>
-      <span id="summary-line">Texture-first Natural Planet surface, Standard 2,880-face mesh, streamlined player-facing controls, and optional diagnostics.</span>
+      <strong id="build-label">WSG Engine v2 Build 0.2.2 - High-Resolution Spherical Renderer</strong>
+      <span id="summary-line">High-resolution spherical renderer with 11,520 triangle faces, texture-first Natural Planet surface, yaw/pitch rotation, collapsible panes, and floating Trends.</span>
     </div>
     <label class="small headerTemplateControl" title="World template">
       <span>Template</span>
@@ -193,10 +229,7 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
       <span>Archetype</span>
       <select id="world-archetype"></select>
     </label>
-    <label class="small headerMeshQualityControl" title="Mesh quality and active cell count">
-      <span>Mesh</span>
-      <select id="mesh-quality"></select>
-    </label>
+    <div class="status-pill meshBadge" title="Active mesh"><span>Mesh:</span> <span id="mesh-status">High Resolution - 11,520 triangle faces</span></div>
     <button id="generate-button" class="primary" type="button">Generate Planet</button>
     <button id="reset-button" type="button">Reset Planet</button>
     <button id="run-pause-button" type="button">Run</button>
@@ -210,20 +243,26 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
       <label class="small opacityControl" title="Overlay opacity">Overlay <input id="overlay-opacity" type="range" min="0" max="1" step="0.05" value="0.65"><span class="kpi">65%</span></label>
       <label class="small opacityControl" title="Cloud overlay"><input id="cloud-toggle" type="checkbox" checked> Clouds</label>
     </div>
-    <label class="small" title="Seed"><span>Seed</span><input id="seed-input" class="seedBox" type="text" value="ENGINE-V2-001"></label>
+    <label class="small seedHeaderControl" title="Seed"><span>Seed</span><input id="seed-input" class="seedBox" type="text" value="ENGINE-V2-001"></label>
     <button id="rotate-left" type="button">Rotate Left</button>
     <button id="rotate-right" type="button">Rotate Right</button>
+    <button id="tilt-up" type="button">Tilt Up</button>
+    <button id="tilt-down" type="button">Tilt Down</button>
     <button id="reset-view" type="button">Reset View</button>
-    <button id="toggle-trends" class="toggle-button" type="button">Trends</button>
+    <button id="light-left" type="button">Light Left</button>
+    <button id="light-right" type="button">Light Right</button>
+    <button id="reset-light" type="button">Reset Light</button>
+    <button id="reset-layout" type="button">Reset Layout</button>
+    <button id="toggle-topbar" type="button">Compact Controls</button>
+    <button id="toggle-bottom-info" type="button">Hide Info</button>
+    <button id="toggle-trends" class="toggle-button" type="button">Open Trends</button>
     <button id="toggle-diagnostics" class="toggle-button diagnostics-access" type="button" title="Optional performance and health diagnostics">Diagnostics</button>
-    <button id="toggle-ledger" class="toggle-button panel-hidden" type="button" aria-hidden="true" tabindex="-1">Internal ledger</button>
-    <button id="toggle-event-log" class="toggle-button panel-hidden" type="button" aria-hidden="true" tabindex="-1">Internal messages</button>
     <div class="status-pill">Worker: <span id="worker-status">initialising</span></div>
   </header>
 
   <main class="main app-shell">
     <aside class="panel toolPanel control-column" aria-label="Terraforming tools">
-      <div class="panelTitle"><span>Terraforming Tools</span><span id="selected-tool-mini" class="small">Inspect World</span></div>
+      <div class="panelTitle"><span>Terraforming Tools</span><span class="panelTitleActions"><span id="selected-tool-mini" class="small">Inspect World</span><button id="collapse-left-pane" class="paneButton" type="button">Min</button></span></div>
       <label class="small toolFallbackLabel">Fallback selector<select id="tool-select"></select></label>
       <div id="tool-button-grid" class="toolGrid" aria-label="Tool shortcuts"></div>
       <div class="controlGroup">
@@ -261,19 +300,15 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
           <div class="vital"><label>Primitive life</label><span id="vital-life">0.000</span></div>
           <div class="vital"><label>Settlements</label><span id="vital-settlement">0%</span></div>
           <div class="vital"><label>Collapse risk</label><span id="vital-collapse">0.000</span></div>
-          <div class="vital"><label>Mesh</label><span id="vital-mesh">Standard</span></div>
+          <div class="vital"><label>Mesh</label><span id="vital-mesh">High Resolution</span></div>
         </div>
       </div>
       <div id="status-line" class="status-line quick-start">Quick Start: Generate planet, select tool, click planet, Step or Run time, inspect consequences.</div>
       <div id="layer-legend" class="status-line layerLegend">Layer legend: Natural Planet uses a cached texture-first surface with terrain, water, ice, cloud haze, atmosphere and lighting.</div>
-      <section class="card compact-card">
-        <h2>Selected Cell</h2>
-        <div id="selected-panel"><p>No cell selected.</p></div>
-      </section>
     </section>
 
     <aside class="panel feedbackPanel info-column" aria-label="World panels">
-      <div class="panelTitle"><span>World Panels</span><span class="small">compact mode</span></div>
+      <div class="panelTitle"><span>World Panels</span><span class="panelTitleActions"><span class="small">player mode</span><button id="collapse-right-pane" class="paneButton" type="button">Min</button></span></div>
       <section class="feedbackCard">
         <h3>Planet Goal</h3>
         <p class="goalText">Shape a primitive world into a stable living planet. Keep water, ice, heat, habitability, primitive life, ecosystems, and early settlements inside viable bounds.</p>
@@ -281,6 +316,10 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
       <section class="feedbackCard">
         <h3>Core Planet Stats</h3>
         <div id="stats-panel" class="metric-grid"><p>Waiting for state summary.</p></div>
+      </section>
+      <section class="feedbackCard selected-cell-card">
+        <h3>Selected Cell</h3>
+        <div id="selected-panel" class="metric-grid"><p>No cell selected.</p></div>
       </section>
       <section class="feedbackCard">
         <h3>Action &amp; Consequence</h3>
@@ -290,38 +329,52 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
         <h3>What to Watch</h3>
         <div id="watch-panel" class="metric-grid"><p>Watch water, ice, temperature, habitability, primitive life, settlements, and collapse risk after each action.</p></div>
       </section>
-      <section class="feedbackCard panel-hidden" id="trends-card">
-        <h3>Planet Trends</h3>
-        <p class="small-note">Compact trend summary. Hidden by default to preserve the planet-first view.</p>
-        <div id="trends-panel"><p>Trend samples will appear after generation and ticks.</p></div>
-      </section>
       <section class="feedbackCard panel-hidden" id="diagnostics-card">
         <h3>Optional Diagnostics</h3>
         <p class="small-note">Performance telemetry and internal health checks. This drawer is hidden by default.</p>
         <div id="diagnostics-panel" class="metric-grid"><p>Waiting for diagnostics.</p></div>
         <hr>
-        <label class="small">Health check<select id="probe-select"></select></label>
+        <label class="small">Health Check<select id="probe-select"></select></label>
         <div class="button-row">
-          <button id="run-probe-button" type="button">Run Selected Check</button>
-          <button id="run-all-probes-button" type="button">Run All Checks</button>
+          <button id="run-probe-button" type="button">Run Health Check</button>
+          <button id="run-all-probes-button" type="button">Run All Health Checks</button>
         </div>
         <div id="probe-output" class="probe-output"></div>
       </section>
     </aside>
   </main>
 
-  <section class="bottom-panels panel-hidden" id="advanced-bottom-panels">
-    <article class="card panel-hidden" id="migration-ledger-card">
-      <div id="migration-ledger"></div>
-    </article>
-    <article class="card panel-hidden" id="event-log-card">
-      <h3>Internal messages</h3>
-      <div id="event-log" class="event-log"></div>
-    </article>
+  <div class="restore-rail left-restore-rail"><button id="restore-left-pane" type="button">Tools</button></div>
+  <div class="restore-rail right-restore-rail"><button id="restore-right-pane" type="button">World Panels</button></div>
+
+  <section class="floating-trends panel-hidden" id="trends-window" aria-label="Floating Planet Trends chart">
+    <div class="trends-header" id="trends-header">
+      <strong>Planet Trends</strong>
+      <span id="trends-status" class="small">closed until opened</span>
+      <div class="trends-window-buttons">
+        <button id="reset-trends-history" type="button">Reset</button>
+        <button id="minimise-trends" type="button">Min</button>
+        <button id="close-trends" type="button">Close</button>
+      </div>
+    </div>
+    <div class="trends-body">
+      <div class="trends-metrics" id="trends-metric-toggles">
+        <label><input type="checkbox" data-trend="waterShare" checked> Water</label>
+        <label><input type="checkbox" data-trend="iceShare" checked> Ice</label>
+        <label><input type="checkbox" data-trend="tempC" checked> Temp</label>
+        <label><input type="checkbox" data-trend="habitability" checked> Habitability</label>
+        <label><input type="checkbox" data-trend="primitiveLife" checked> Life</label>
+        <label><input type="checkbox" data-trend="biosphereHealth" checked> Biosphere</label>
+        <label><input type="checkbox" data-trend="settlement" checked> Settlements</label>
+        <label><input type="checkbox" data-trend="collapseRisk" checked> Collapse</label>
+      </div>
+      <canvas id="trends-canvas" width="500" height="200" aria-label="Planet trends chart"></canvas>
+      <div id="trends-readout">Trend history will appear after generation and ticks. Canvas 2D only; no per-cell history.</div>
+    </div>
   </section>
 
   <footer class="footer">
-    <span>Engine v2 texture-first planet cleanup. Two files only: index.html and simulation-worker.js. Canvas 2D renderer; Worker-owned mesh, arrays, tools, validation, and render data.</span>
+    <span>Engine v2 high-resolution spherical renderer. Two files only: index.html and simulation-worker.js. Canvas 2D renderer; Worker-owned mesh, arrays, tools, validation, and render data.</span>
     <span>Two-file Worker architecture</span>
   </footer>
 </div>
@@ -337,7 +390,7 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
    Compacted for Engine v2 0.2.1.
    ============================================================ */
 
-const BUILD_LABEL = 'WSG Engine v2 Build 0.2.1 - Texture-First Natural Planet Cleanup';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.2.2 - High-Resolution Spherical Renderer';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',
@@ -393,14 +446,12 @@ const ARCHETYPES = Object.freeze([
 
 
 const MESH_QUALITY_OPTIONS = Object.freeze([
-  { id: 'performance', label: 'Performance - 1,280 faces', frequency: 8, targetFaces: 1280, default: false },
-  { id: 'standard', label: 'Standard - 2,880 faces', frequency: 12, targetFaces: 2880, default: true },
-  { id: 'high', label: 'High / Experimental - 5,120 faces', frequency: 16, targetFaces: 5120, default: false }
+  { id: 'highres', label: 'High Resolution - 11,520 triangle faces', frequency: 24, targetFaces: 11520, default: true }
 ]);
 
 function meshQualityProfile(id) {
-  const requested = String(id || 'standard');
-  return MESH_QUALITY_OPTIONS.find((item) => item.id === requested) || MESH_QUALITY_OPTIONS.find((item) => item.id === 'standard');
+  const requested = String(id || 'highres');
+  return MESH_QUALITY_OPTIONS.find((item) => item.id === requested) || MESH_QUALITY_OPTIONS[0];
 }
 
 const LAYERS = Object.freeze([
@@ -462,18 +513,18 @@ const TOOLS = Object.freeze([
 ]);
 
 const PROBES = Object.freeze([
-  { id: 'architecture_sanity', label: 'Architecture sanity probe' },
-  { id: 'worker_boot', label: 'Worker boot probe' },
-  { id: 'deterministic_generation', label: 'Deterministic generation probe' },
-  { id: 'snapshot_restore', label: 'Worker snapshot/restore probe' },
-  { id: 'procedural_lifeless', label: 'Procedural lifeless world probe' },
-  { id: 'earthlike_template', label: 'Earthlike template probe' },
-  { id: 'ecosystem_growth', label: 'Ecosystem growth probe' },
-  { id: 'civilisation_gate', label: 'Civilisation emergence gate probe' },
-  { id: 'intervention_parity', label: 'Intervention parity probe' },
-  { id: 'no_dom_in_worker', label: 'No UI access in worker probe' },
-  { id: 'render_data_finite', label: 'Render-data finite/bounded probe' },
-  { id: 'visual_resolution', label: 'Scientific visual resolution probe' }
+  { id: 'architecture_sanity', label: 'Architecture sanity check' },
+  { id: 'worker_boot', label: 'Worker boot check' },
+  { id: 'deterministic_generation', label: 'Deterministic generation check' },
+  { id: 'snapshot_restore', label: 'Worker snapshot/restore check' },
+  { id: 'procedural_lifeless', label: 'Procedural lifeless world check' },
+  { id: 'earthlike_template', label: 'Earthlike template check' },
+  { id: 'ecosystem_growth', label: 'Ecosystem growth check' },
+  { id: 'civilisation_gate', label: 'Civilisation emergence gate check' },
+  { id: 'intervention_parity', label: 'Intervention parity check' },
+  { id: 'no_dom_in_worker', label: 'No UI access in worker check' },
+  { id: 'render_data_finite', label: 'Render-data finite/bounded check' },
+  { id: 'visual_resolution', label: 'Scientific visual resolution check' }
 ]);
 
 function makeEnvelope(type, payload = {}) {
@@ -540,7 +591,7 @@ function getUi() {
     workerStatus: byId('worker-status'),
     template: byId('world-template'),
     archetype: byId('world-archetype'),
-    meshQuality: byId('mesh-quality'),
+    meshStatus: byId('mesh-status'),
     seed: byId('seed-input'),
     generate: byId('generate-button'),
     reset: byId('reset-button'),
@@ -560,30 +611,42 @@ function getUi() {
     rotateLeft: byId('rotate-left'),
     rotateRight: byId('rotate-right'),
     resetView: byId('reset-view'),
+    tiltUp: byId('tilt-up'),
+    tiltDown: byId('tilt-down'),
+    lightLeft: byId('light-left'),
+    lightRight: byId('light-right'),
+    resetLight: byId('reset-light'),
+    resetLayout: byId('reset-layout'),
+    toggleTopbar: byId('toggle-topbar'),
+    toggleBottomInfo: byId('toggle-bottom-info'),
+    collapseLeft: byId('collapse-left-pane'),
+    collapseRight: byId('collapse-right-pane'),
+    restoreLeft: byId('restore-left-pane'),
+    restoreRight: byId('restore-right-pane'),
     canvas: byId('planet-canvas'),
     stats: byId('stats-panel'),
     actionConsequence: byId('action-consequence-panel'),
     watchPanel: byId('watch-panel'),
     selected: byId('selected-panel'),
-    trends: byId('trends-panel'),
+    trendsCanvas: byId('trends-canvas'),
+    trendsStatus: byId('trends-status'),
+    trendsReadout: byId('trends-readout'),
+    trendsMetricToggles: byId('trends-metric-toggles'),
     diagnostics: byId('diagnostics-panel'),
     probeSelect: byId('probe-select'),
     runProbe: byId('run-probe-button'),
     runAllProbes: byId('run-all-probes-button'),
     probes: byId('probe-output'),
-    ledger: byId('migration-ledger'),
-    eventLog: byId('event-log'),
     statusLine: byId('status-line'),
     summaryLine: byId('summary-line'),
-    trendsCard: byId('trends-card'),
+    trendsCard: byId('trends-window'),
+    trendsHeader: byId('trends-header'),
+    minimiseTrends: byId('minimise-trends'),
+    closeTrends: byId('close-trends'),
+    resetTrendsHistory: byId('reset-trends-history'),
     diagnosticsCard: byId('diagnostics-card'),
-    bottomPanels: byId('advanced-bottom-panels'),
-    ledgerCard: byId('migration-ledger-card'),
-    eventLogCard: byId('event-log-card'),
     toggleTrends: byId('toggle-trends'),
     toggleDiagnostics: byId('toggle-diagnostics'),
-    toggleLedger: byId('toggle-ledger'),
-    toggleEventLog: byId('toggle-event-log'),
     modeBadge: byId('mode-badge'),
     selectedToolMini: byId('selected-tool-mini'),
     toolButtonGrid: byId('tool-button-grid'),
@@ -610,8 +673,8 @@ function initialiseUi(ui) {
   ui.buildLabel.textContent = BUILD_LABEL;
   fillSelect(ui.template, TEMPLATES);
   fillSelect(ui.archetype, ARCHETYPES);
-  fillSelect(ui.meshQuality, MESH_QUALITY_OPTIONS);
-  ui.meshQuality.value = 'standard';
+  if (ui.meshQuality) { fillSelect(ui.meshQuality, MESH_QUALITY_OPTIONS); ui.meshQuality.value = 'highres'; }
+  if (ui.meshStatus) ui.meshStatus.textContent = MESH_QUALITY_OPTIONS[0].label;
   fillSelect(ui.visualMode, VISUAL_MODES);
   fillSelect(ui.layer, LAYERS);
   fillSelect(ui.tool, TOOLS);
@@ -621,13 +684,13 @@ function initialiseUi(ui) {
   updateVisualReadouts(ui);
   if (ui.applyTool) ui.applyTool.disabled = true;
   ui.seed.value = 'ENGINE-V2-001';
-  if (ui.ledger) ui.ledger.innerHTML = migrationLedgerHtml();
+  // Technical migration ledger and event log are not part of the player-facing surface in this build.
 }
 
 function renderSummary(ui, summary) {
   const warnings = summary.warnings && summary.warnings.length ? summary.warnings : ['None'];
   if (ui.workerStatus && ui.workerStatus.textContent === 'initialising') ui.workerStatus.textContent = summary.diagnostics?.workerStatus || 'READY';
-  ui.summaryLine.textContent = `${summary.template} | ${summary.archetype} | ${summary.meshQualityLabel || summary.meshQuality || 'mesh'} | year ${summary.year} | cells ${summary.cellCount}`;
+  ui.summaryLine.textContent = `${summary.template} | ${summary.archetype} | High Resolution | year ${summary.year} | cells ${summary.cellCount}`;
   setTextIfNode(ui.vitalYear, summary.year);
   setTextIfNode(ui.vitalTick, summary.stepCount ?? 0);
   setTextIfNode(ui.vitalWater, formatPct(summary.waterShare));
@@ -637,10 +700,11 @@ function renderSummary(ui, summary) {
   setTextIfNode(ui.vitalLife, formatNum(summary.primitiveLifeMean, 3));
   setTextIfNode(ui.vitalSettlement, formatPct(summary.settlementShare));
   setTextIfNode(ui.vitalCollapse, formatNum(summary.collapseRiskMean, 3));
-  setTextIfNode(ui.vitalMesh, `${summary.meshQualityLabel || summary.meshQuality || 'Standard'} (${summary.cellCount || 0})`);
+  setTextIfNode(ui.vitalMesh, `High Resolution (${summary.cellCount || 0})`);
+  if (ui.meshStatus) ui.meshStatus.textContent = `High Resolution - ${summary.cellCount || 0} triangle faces`;
   ui.stats.innerHTML = `
     <div class="metric"><span>Year</span><strong>${summary.year}</strong></div>
-    <div class="metric"><span>Mesh</span><strong>${escapeHtml(summary.meshQualityLabel || summary.meshQuality || 'Standard')} | ${summary.cellCount} cells</strong></div>
+    <div class="metric"><span>Mesh</span><strong>High Resolution | ${summary.cellCount} cells</strong></div>
     <div class="metric"><span>Average temperature</span><strong>${formatNum(summary.averageTemperatureC, 1)} °C</strong></div>
     <div class="metric"><span>Water share</span><strong>${formatPct(summary.waterShare)}</strong></div>
     <div class="metric"><span>Ice share</span><strong>${formatPct(summary.iceShare)}</strong></div>
@@ -762,6 +826,7 @@ function renderSelected(ui, selected) {
     <div class="metric"><span>Settlements</span><strong>${formatNum(selected.settlements, 3)}</strong></div>
     <div class="metric wide"><span>Life status</span><strong>${escapeHtml(selected.lifeStatus)}</strong></div>
     <div class="metric wide"><span>Limiting factor</span><strong>${escapeHtml(selected.limitingFactor)}</strong></div>
+    <div class="metric wide"><span>Suggested next action</span><strong>${escapeHtml(selected.suggestion || selected.suggestedNextAction || selected.limitingFactor || 'Compare a science layer, then choose a bounded tool.')}</strong></div>
   `;
 }
 
@@ -777,6 +842,8 @@ function renderDiagnostics(ui, diagnostics, mainMetrics) {
     <div class="metric"><span>Health check</span><strong>${formatNum(data.lastProbeMs, 2)} ms</strong></div>
     <div class="metric"><span>Render-data build</span><strong>${formatNum(data.lastRenderDataBuildMs, 2)} ms</strong></div>
     <div class="metric"><span>Main render</span><strong>${formatNum(mainMetrics.lastRenderMs, 2)} ms</strong></div>
+    <div class="metric"><span>Texture rebuild</span><strong>${formatNum(mainMetrics.lastTextureMs, 2)} ms</strong></div>
+    <div class="metric"><span>Trend draw</span><strong>${formatNum(trendState.lastDrawMs, 2)} ms</strong></div>
     <div class="metric"><span>DOM update</span><strong>${formatNum(mainMetrics.lastDomMs, 2)} ms</strong></div>
     <div class="metric"><span>Render dirty</span><strong>${String(data.renderDirty)}</strong></div>
     <div class="metric"><span>Cells</span><strong>${data.cellCount || 0}</strong></div>
@@ -944,26 +1011,8 @@ function renderProbeLine(item) {
 }
 
 function migrationLedgerHtml() {
-  return `
-    <h3>Migration ledger</h3>
-    <p><strong>Status:</strong> Engine v2 0.2.0 preserves two-file Worker architecture while upgrading mesh resolution, natural rendering, and layer legibility.</p>
-    <div class="ledger-grid">
-      <section><h4>Ported from Classic</h4><p>Generate, Reset, Step, Run/Pause, Advance Years, seed, template and archetype controls, all 12 Classic v1 intervention tools, major layers, selected-cell inspection, trends, probes, and diagnostics.</p></section>
-      <section><h4>Simplified</h4><p>Planet generation, climate, hydrology, primitive life, ecosystem state, stewardship, and early settlements are compact deterministic approximations.</p></section>
-      <section><h4>Stubbed for future migration</h4><p>Drainage basins, lake overflow, erosion, sediment, ocean heat transport, richer probes, richer hydrology, and deeper ecosystem transitions.</p></section>
-      <section><h4>Intentionally deferred</h4><p>Full Earth matching, all Classic panels, save/load, scenarios, advanced graphics backends, imported data, and asset bundles.</p></section>
-      <section><h4>Known behavioural differences</h4><p>The proof uses a frequency-based spherical triangle-face mesh with Performance, Standard, and High quality modes. Worker-owned arrays regenerate to match the active mesh.</p></section>
-    </div>
-  `;
+  return '<p>Internal migration notes are not exposed in the player-facing shell.</p>';
 }
-
-
-/* ============================================================
-   Canvas 2D renderer
-   Source section: renderer2d.js
-   Compacted for Engine v2 0.2.1.
-   ============================================================ */
-
 
 
 function createRenderer(canvas) {
@@ -973,12 +1022,17 @@ function createRenderer(canvas) {
   let data = null;
   let rotation = 0.25;
   let tilt = 0.12;
+  let lightYaw = -0.45;
   let viewport = { cssWidth: 0, cssHeight: 0, width: 0, height: 0, scale: 1, cx: 0, cy: 0, radius: 1 };
   let lastProjection = [];
   let lastRenderMs = 0;
   let naturalTextureCanvas = null;
   let naturalTextureCtx = null;
   let naturalTextureImage = null;
+  let textureCellMap = null;
+  let textureClassMap = null;
+  let textureMapSignature = '';
+  let lastTextureMs = 0;
   let naturalTextureSignature = '';
   let naturalTextureDirty = true;
   let projectedCanvas = null;
@@ -995,6 +1049,21 @@ function createRenderer(canvas) {
 
   function rotate(delta) {
     rotation += delta;
+    projectedDirty = true;
+  }
+
+  function rotatePitch(delta) {
+    tilt = clamp(tilt + delta, -1.15, 1.15);
+    projectedDirty = true;
+  }
+
+  function rotateLight(delta) {
+    lightYaw += delta;
+    projectedDirty = true;
+  }
+
+  function resetLight() {
+    lightYaw = -0.45;
     projectedDirty = true;
   }
 
@@ -1088,9 +1157,10 @@ function createRenderer(canvas) {
   }
 
   function ensureNaturalTexture(cloudsEnabled) {
-    const textureSignature = [data.count, data.tick, data.year, data.meshQuality, cloudsEnabled ? 1 : 0, data.bytes || 0].join('|');
+    const textureSignature = [data.count, data.tick, data.year, data.meshQuality, cloudsEnabled ? 1 : 0, data.bytes || 0, 'structured-v2'].join('|');
     if (!naturalTextureDirty && naturalTextureSignature === textureSignature && naturalTextureImage) return;
-    const texW = data.count >= 5000 ? 768 : data.count >= 2800 ? 640 : 512;
+    const start = performance.now();
+    const texW = data.count >= 10000 ? 960 : data.count >= 5000 ? 832 : 704;
     const texH = Math.floor(texW / 2);
     if (!naturalTextureCanvas) {
       naturalTextureCanvas = document.createElement('canvas');
@@ -1099,67 +1169,145 @@ function createRenderer(canvas) {
     if (naturalTextureCanvas.width !== texW || naturalTextureCanvas.height !== texH) {
       naturalTextureCanvas.width = texW;
       naturalTextureCanvas.height = texH;
+      textureCellMap = null;
+      textureClassMap = null;
+      textureMapSignature = '';
     }
+    ensureTextureCellMap(texW, texH);
     const tctx = naturalTextureCtx;
-    tctx.save();
-    tctx.imageSmoothingEnabled = true;
-    tctx.imageSmoothingQuality = 'high';
-    const ocean = tctx.createLinearGradient(0, 0, 0, texH);
-    ocean.addColorStop(0, '#0b3157');
-    ocean.addColorStop(0.50, '#064071');
-    ocean.addColorStop(1, '#0b3157');
-    tctx.fillStyle = ocean;
-    tctx.fillRect(0, 0, texW, texH);
-
-    const cellRadius = Math.max(2.2, Math.sqrt((texW * texH) / Math.max(1, data.count)) * 1.05);
-    const coastRadius = cellRadius * 0.92;
-    for (let pass = 0; pass < 2; pass += 1) {
-      for (let i = 0; i < data.count; i += 1) {
-        const lon = Number(data.longitude?.[i] ?? 0);
-        const lat = Number(data.latitude?.[i] ?? 0);
-        const x = (lon + 180) / 360 * texW;
-        const y = (90 - lat) / 180 * texH;
-        const coast = clamp01(data.coastProximity?.[i] ?? 0);
-        const radius = pass === 0 ? cellRadius * (1.16 + coast * 0.34) : coastRadius;
-        tctx.globalAlpha = pass === 0 ? 0.90 : 0.42;
-        tctx.fillStyle = pass === 0 ? naturalColor(data, i, 1, cloudsEnabled) : coastlineTint(data, i);
-        drawTextureBlob(tctx, x, y, radius, texW, texH);
-      }
+    const image = tctx.createImageData(texW, texH);
+    const dst = image.data;
+    const classes = textureClassMap;
+    for (let p = 0; p < textureCellMap.length; p += 1) {
+      const cell = textureCellMap[p];
+      const rgba = naturalRgb(data, cell, 1, cloudsEnabled);
+      const idx = p * 4;
+      dst[idx] = rgba[0];
+      dst[idx + 1] = rgba[1];
+      dst[idx + 2] = rgba[2];
+      dst[idx + 3] = 255;
+      classes[p] = terrainVisualClass(data, cell);
     }
-    tctx.globalAlpha = 1;
-
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = texW;
-    tempCanvas.height = texH;
-    const tempCtx = tempCanvas.getContext('2d');
-    tempCtx.drawImage(naturalTextureCanvas, 0, 0);
-    tctx.clearRect(0, 0, texW, texH);
-    tctx.filter = 'blur(1.2px)';
-    tctx.drawImage(tempCanvas, 0, 0);
-    tctx.filter = 'none';
-    tctx.globalAlpha = 0.34;
-    tctx.drawImage(tempCanvas, 0, 0);
-    tctx.globalAlpha = 1;
-    tctx.restore();
+    classAwareSmooth(dst, classes, texW, texH, 1);
+    addLatitudeAndCoastAccents(dst, texW, texH, textureCellMap, data);
+    tctx.putImageData(image, 0, 0);
     naturalTextureImage = tctx.getImageData(0, 0, texW, texH);
     naturalTextureSignature = textureSignature;
     naturalTextureDirty = false;
     projectedDirty = true;
+    lastTextureMs = performance.now() - start;
   }
 
-  function drawTextureBlob(tctx, x, y, radius, texW, texH) {
-    for (const offset of [0, -texW, texW]) {
-      tctx.beginPath();
-      tctx.ellipse(x + offset, y, radius * 1.25, radius * 0.92, 0, 0, Math.PI * 2);
-      tctx.fill();
+  function ensureTextureCellMap(texW, texH) {
+    const signature = [data.count, texW, texH, data.meshQuality, 'nearest-binned-v1'].join('|');
+    if (textureCellMap && textureClassMap && textureMapSignature === signature) return;
+    textureCellMap = new Uint32Array(texW * texH);
+    textureClassMap = new Uint8Array(texW * texH);
+    const lonBins = 96;
+    const latBins = 48;
+    const bins = Array.from({ length: lonBins * latBins }, () => []);
+    for (let i = 0; i < data.count; i += 1) {
+      const lon = Number(data.longitude?.[i] ?? 0);
+      const lat = Number(data.latitude?.[i] ?? 0);
+      const bx = clamp(Math.floor((lon + 180) / 360 * lonBins), 0, lonBins - 1);
+      const by = clamp(Math.floor((90 - lat) / 180 * latBins), 0, latBins - 1);
+      bins[by * lonBins + bx].push(i);
+    }
+    for (let y = 0; y < texH; y += 1) {
+      const lat = (90 - (y + 0.5) / texH * 180) * Math.PI / 180;
+      const cosLat = Math.cos(lat);
+      const vy = Math.sin(lat);
+      const by = clamp(Math.floor(y / texH * latBins), 0, latBins - 1);
+      for (let x = 0; x < texW; x += 1) {
+        const lon = ((x + 0.5) / texW * 360 - 180) * Math.PI / 180;
+        const vx = Math.cos(lon) * cosLat;
+        const vz = Math.sin(lon) * cosLat;
+        const bx = Math.floor(x / texW * lonBins) % lonBins;
+        let best = 0;
+        let bestDot = -2;
+        let found = false;
+        for (let dy = -1; dy <= 1; dy += 1) {
+          const yy = clamp(by + dy, 0, latBins - 1);
+          for (let dx = -1; dx <= 1; dx += 1) {
+            const xx = (bx + dx + lonBins) % lonBins;
+            const list = bins[yy * lonBins + xx];
+            for (let k = 0; k < list.length; k += 1) {
+              const cell = list[k];
+              const dot = vx * data.centerX[cell] + vy * data.centerY[cell] + vz * data.centerZ[cell];
+              if (dot > bestDot) { bestDot = dot; best = cell; found = true; }
+            }
+          }
+        }
+        if (!found) {
+          const stride = Math.max(1, Math.floor(data.count / 4000));
+          for (let cell = 0; cell < data.count; cell += stride) {
+            const dot = vx * data.centerX[cell] + vy * data.centerY[cell] + vz * data.centerZ[cell];
+            if (dot > bestDot) { bestDot = dot; best = cell; }
+          }
+        }
+        textureCellMap[y * texW + x] = best;
+      }
+    }
+    textureMapSignature = signature;
+  }
+
+  function classAwareSmooth(buf, classes, w, h, passes) {
+    const tmp = new Uint8ClampedArray(buf.length);
+    for (let pass = 0; pass < passes; pass += 1) {
+      tmp.set(buf);
+      for (let y = 1; y < h - 1; y += 1) {
+        for (let x = 0; x < w; x += 1) {
+          const p = y * w + x;
+          const baseClass = classes[p];
+          let r = 0, g = 0, b = 0, n = 0;
+          for (let yy = -1; yy <= 1; yy += 1) {
+            for (let xx = -1; xx <= 1; xx += 1) {
+              const nx = (x + xx + w) % w;
+              const np = (y + yy) * w + nx;
+              if (!classesCompatible(baseClass, classes[np])) continue;
+              const idx = np * 4;
+              r += tmp[idx]; g += tmp[idx + 1]; b += tmp[idx + 2]; n += 1;
+            }
+          }
+          if (n > 0) {
+            const idx = p * 4;
+            buf[idx] = Math.round(r / n);
+            buf[idx + 1] = Math.round(g / n);
+            buf[idx + 2] = Math.round(b / n);
+          }
+        }
+      }
     }
   }
 
-  function coastlineTint(source, i) {
-    const water = clamp01(source.water?.[i] ?? 0);
-    const coast = clamp01(source.coastProximity?.[i] ?? 0);
-    if (water > 0.45) return coast > 0.25 ? 'rgb(78,168,190)' : 'rgb(12,70,128)';
-    return coast > 0.25 ? 'rgb(208,188,126)' : naturalColor(source, i, 1, true);
+  function classesCompatible(a, b) {
+    if (a === b) return true;
+    const landA = a >= 2 && a <= 6;
+    const landB = b >= 2 && b <= 6;
+    const waterA = a <= 1;
+    const waterB = b <= 1;
+    return (landA && landB) || (waterA && waterB);
+  }
+
+  function addLatitudeAndCoastAccents(buf, w, h, map, source) {
+    for (let p = 0; p < map.length; p += 1) {
+      const cell = map[p];
+      const idx = p * 4;
+      const coast = clamp01(source.coastProximity?.[cell] ?? 0);
+      const ice = clamp01(source.ice?.[cell] ?? 0);
+      const water = clamp01(source.water?.[cell] ?? 0);
+      if (coast > 0.38 && water < 0.55) {
+        buf[idx] = Math.round(lerp(buf[idx], 218, coast * 0.18));
+        buf[idx + 1] = Math.round(lerp(buf[idx + 1], 199, coast * 0.14));
+        buf[idx + 2] = Math.round(lerp(buf[idx + 2], 132, coast * 0.10));
+      }
+      if (ice > 0.35) {
+        const a = ice * 0.20;
+        buf[idx] = Math.round(lerp(buf[idx], 236, a));
+        buf[idx + 1] = Math.round(lerp(buf[idx + 1], 244, a));
+        buf[idx + 2] = Math.round(lerp(buf[idx + 2], 248, a));
+      }
+    }
   }
 
   function ensureProjectedSurface(view, cloudsEnabled) {
@@ -1170,7 +1318,7 @@ function createRenderer(canvas) {
     const cx = view.cx * scale;
     const cy = view.cy * scale;
     const radius = view.radius * scale;
-    const signature = [naturalTextureSignature, outW, outH, Math.round(cx), Math.round(cy), Math.round(radius), rotation.toFixed(4), tilt.toFixed(4), cloudsEnabled ? 1 : 0].join('|');
+    const signature = [naturalTextureSignature, outW, outH, Math.round(cx), Math.round(cy), Math.round(radius), rotation.toFixed(4), tilt.toFixed(4), lightYaw.toFixed(4), cloudsEnabled ? 1 : 0].join('|');
     if (!projectedDirty && projectedSignature === signature && projectedCanvas) return;
     if (!projectedCanvas) {
       projectedCanvas = document.createElement('canvas');
@@ -1190,7 +1338,7 @@ function createRenderer(canvas) {
     const sinR = Math.sin(rotation);
     const cosT = Math.cos(tilt);
     const sinT = Math.sin(tilt);
-    const light = normalizeLight([-0.38, -0.28, 0.88]);
+    const light = normalizeLight([Math.sin(lightYaw) * 0.82, -0.30, Math.cos(lightYaw) * 0.82]);
 
     const minX = Math.max(0, Math.floor(cx - radius - 2));
     const maxX = Math.min(outW - 1, Math.ceil(cx + radius + 2));
@@ -1213,7 +1361,7 @@ function createRenderer(canvas) {
         const lon = Math.atan2(z, x);
         const tx = ((lon + Math.PI) / (Math.PI * 2)) * texW;
         const ty = ((Math.PI / 2 - lat) / Math.PI) * texH;
-        const color = sampleTexture(tex, texW, texH, tx, ty);
+        const color = sampleTextureBilinear(tex, texW, texH, tx, ty);
         const lightDot = sx * light[0] + sy * light[1] + depth * light[2];
         const terminator = smoothstep(-0.12, 0.22, lightDot);
         const limb = 0.58 + depth * 0.42;
@@ -1231,11 +1379,24 @@ function createRenderer(canvas) {
     projectedDirty = false;
   }
 
-  function sampleTexture(tex, texW, texH, x, y) {
+  function sampleTextureBilinear(tex, texW, texH, x, y) {
     const x0 = ((Math.floor(x) % texW) + texW) % texW;
+    const x1 = (x0 + 1) % texW;
     const y0 = clamp(Math.floor(y), 0, texH - 1);
-    const idx = (y0 * texW + x0) * 4;
-    return [tex[idx], tex[idx + 1], tex[idx + 2]];
+    const y1 = clamp(y0 + 1, 0, texH - 1);
+    const fx = x - Math.floor(x);
+    const fy = y - Math.floor(y);
+    const i00 = (y0 * texW + x0) * 4;
+    const i10 = (y0 * texW + x1) * 4;
+    const i01 = (y1 * texW + x0) * 4;
+    const i11 = (y1 * texW + x1) * 4;
+    const out = [0, 0, 0];
+    for (let c = 0; c < 3; c += 1) {
+      const a = lerp(tex[i00 + c], tex[i10 + c], fx);
+      const b = lerp(tex[i01 + c], tex[i11 + c], fx);
+      out[c] = lerp(a, b, fy);
+    }
+    return out;
   }
 
   function normalizeLight(v) {
@@ -1339,7 +1500,11 @@ function createRenderer(canvas) {
     return lastRenderMs;
   }
 
-  return { setRenderData, render, pick, rotate, resetView, getLastRenderMs, updateViewport };
+  function getTextureMs() {
+    return lastTextureMs;
+  }
+
+  return { setRenderData, render, pick, rotate, rotatePitch, rotateLight, resetLight, resetView, getLastRenderMs, getTextureMs, updateViewport };
 }
 
 function projectVector(x, y, z, cosR, sinR, cosT, sinT) {
@@ -1414,7 +1579,7 @@ function drawSelectedCell(ctx, projection, radius, selectedCell, hoverCell, tool
   }
 }
 
-function naturalColor(data, i, light, cloudsEnabled) {
+function naturalRgb(data, i, light, cloudsEnabled) {
   const water = clamp01(data.water[i] || 0);
   const ice = clamp01(data.ice[i] || 0);
   const life = clamp01(data.primitiveLife[i] || 0);
@@ -1481,7 +1646,28 @@ function naturalColor(data, i, light, cloudsEnabled) {
     b = lerp(b, 98, settlements * 0.18);
   }
   const illum = 0.46 + daylight * 0.52;
-  return rgb(r * illum * relief, g * illum * relief, b * illum * relief);
+  return [Math.round(clamp(r * illum * relief, 0, 255)), Math.round(clamp(g * illum * relief, 0, 255)), Math.round(clamp(b * illum * relief, 0, 255))];
+}
+
+function naturalColor(data, i, light, cloudsEnabled) {
+  const c = naturalRgb(data, i, light, cloudsEnabled);
+  return rgb(c[0], c[1], c[2]);
+}
+
+function terrainVisualClass(data, i) {
+  const water = clamp01(data.water?.[i] ?? 0);
+  const ice = clamp01(data.ice?.[i] ?? 0);
+  const elev = clamp01(data.elevation?.[i] ?? 0);
+  const rainfall = clamp01(data.rainfall?.[i] ?? 0);
+  const heat = clamp01(data.heatStress?.[i] ?? 0);
+  const life = clamp01(data.primitiveLife?.[i] ?? 0);
+  if (ice > 0.35) return 7;
+  if (water > 0.65) return 0;
+  if (water > 0.45) return 1;
+  if (elev > 0.78) return 6;
+  if (life > 0.04 || rainfall > 0.55) return 5;
+  if (heat > 0.55 || rainfall < 0.22) return 4;
+  return 2;
 }
 
 function layerColor(data, i, layer, light, diagnostic) {
@@ -1547,7 +1733,7 @@ function bindControls(ui, actions) {
   ui.archetype.addEventListener('change', () => actions.command(COMMANDS.SET_ARCHETYPE, { archetype: ui.archetype.value }));
   if (ui.meshQuality) ui.meshQuality.addEventListener('change', () => {
     actions.command(COMMANDS.GENERATE, collectGenerationOptions(ui));
-    actions.addEvent?.(`Mesh quality changed to ${ui.meshQuality.options[ui.meshQuality.selectedIndex].text}; planet regenerated deliberately.`);
+    actions.addEvent?.(`High-resolution mesh is fixed; planet regenerated deliberately.`);
   });
   ui.applyTool.addEventListener('click', () => actions.applyToolToSelected());
   if (ui.runProbe) ui.runProbe.addEventListener('click', () => actions.command(COMMANDS.RUN_PROBE, { probeId: ui.probeSelect.value }));
@@ -1563,16 +1749,30 @@ function bindControls(ui, actions) {
   ui.toolStrength.addEventListener('input', () => updateToolUiReadouts(ui));
   ui.rotateLeft.addEventListener('click', () => { actions.rotate(-0.22); actions.redraw(); });
   ui.rotateRight.addEventListener('click', () => { actions.rotate(0.22); actions.redraw(); });
+  if (ui.tiltUp) ui.tiltUp.addEventListener('click', () => { actions.rotatePitch(0.16); actions.redraw(); });
+  if (ui.tiltDown) ui.tiltDown.addEventListener('click', () => { actions.rotatePitch(-0.16); actions.redraw(); });
+  if (ui.lightLeft) ui.lightLeft.addEventListener('click', () => { actions.rotateLight(-0.28); actions.redraw(); });
+  if (ui.lightRight) ui.lightRight.addEventListener('click', () => { actions.rotateLight(0.28); actions.redraw(); });
+  if (ui.resetLight) ui.resetLight.addEventListener('click', () => { actions.resetLight(); actions.redraw(); });
   ui.resetView.addEventListener('click', () => { actions.resetView(); actions.redraw(); });
+  if (ui.resetLayout) ui.resetLayout.addEventListener('click', () => resetLayout(ui, actions));
+  if (ui.toggleTopbar) ui.toggleTopbar.addEventListener('click', () => toggleBodyClass(ui.toggleTopbar, 'topbar-compact', 'Expand Controls', 'Compact Controls', actions));
+  if (ui.toggleBottomInfo) ui.toggleBottomInfo.addEventListener('click', () => toggleBodyClass(ui.toggleBottomInfo, 'bottom-info-collapsed', 'Show Info', 'Hide Info', actions));
+  if (ui.collapseLeft) ui.collapseLeft.addEventListener('click', () => { document.body.classList.add('left-collapsed'); actions.redraw(); });
+  if (ui.restoreLeft) ui.restoreLeft.addEventListener('click', () => { document.body.classList.remove('left-collapsed'); actions.redraw(); });
+  if (ui.collapseRight) ui.collapseRight.addEventListener('click', () => { document.body.classList.add('right-collapsed'); actions.redraw(); });
+  if (ui.restoreRight) ui.restoreRight.addEventListener('click', () => { document.body.classList.remove('right-collapsed'); actions.redraw(); });
 
   let dragging = false;
   let lastX = 0;
+  let dragStateLastY = 0;
   let downX = 0;
   let downY = 0;
   let moved = false;
   ui.canvas.addEventListener('pointerdown', (event) => {
     dragging = true;
     lastX = event.clientX;
+    dragStateLastY = event.clientY;
     downX = event.clientX;
     downY = event.clientY;
     moved = false;
@@ -1582,11 +1782,12 @@ function bindControls(ui, actions) {
     if (dragging && event.buttons) {
       moved = moved || Math.abs(event.clientX - downX) + Math.abs(event.clientY - downY) > 6;
       const dx = event.clientX - lastX;
-      if (Math.abs(dx) > 1) {
-        actions.rotate(dx * 0.006);
-        actions.redraw();
-      }
+      const dy = event.clientY - (dragStateLastY || event.clientY);
+      if (Math.abs(dx) > 1) actions.rotate(dx * 0.006);
+      if (Math.abs(dy) > 1) actions.rotatePitch(-dy * 0.005);
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) actions.redraw();
       lastX = event.clientX;
+      dragStateLastY = event.clientY;
     } else {
       actions.hover(event.clientX, event.clientY);
     }
@@ -1604,7 +1805,7 @@ function collectGenerationOptions(ui) {
     seed: ui.seed.value || 'ENGINE-V2-001',
     template: ui.template.value,
     archetype: ui.archetype.value,
-    meshQuality: ui.meshQuality.value
+    meshQuality: 'highres'
   };
 }
 
@@ -1618,10 +1819,33 @@ function collectToolOptions(ui, cellId) {
 }
 
 function bindPanelToggles(ui) {
-  bindSimplePanelToggle(ui.toggleTrends, ui.trendsCard, 'Trends');
+  initialiseFloatingTrends(ui);
   bindSimplePanelToggle(ui.toggleDiagnostics, ui.diagnosticsCard, 'Diagnostics');
-  bindBottomPanelToggle(ui, ui.toggleLedger, ui.ledgerCard, 'Migration Ledger');
-  bindBottomPanelToggle(ui, ui.toggleEventLog, ui.eventLogCard, 'Event Log');
+}
+
+function resetLayout(ui, actions) {
+  document.body.classList.remove('left-collapsed', 'right-collapsed', 'topbar-compact', 'bottom-info-collapsed');
+  if (ui.toggleTopbar) ui.toggleTopbar.textContent = 'Compact Controls';
+  if (ui.toggleBottomInfo) ui.toggleBottomInfo.textContent = 'Hide Info';
+  if (ui.trendsCard) {
+    ui.trendsCard.classList.add('panel-hidden');
+    ui.trendsCard.classList.remove('minimised');
+    ui.trendsCard.style.left = '';
+    ui.trendsCard.style.top = '';
+    ui.trendsCard.style.right = '330px';
+    ui.trendsCard.style.bottom = '72px';
+  }
+  if (ui.toggleTrends) ui.toggleTrends.textContent = 'Open Trends';
+  actions.resetView();
+  actions.resetLight();
+  actions.redraw();
+}
+
+function toggleBodyClass(button, className, onText, offText, actions) {
+  const on = !document.body.classList.contains(className);
+  document.body.classList.toggle(className, on);
+  button.textContent = on ? onText : offText;
+  actions.redraw();
 }
 
 function bindSimplePanelToggle(button, panel, label) {
@@ -1657,32 +1881,147 @@ function updateBottomPanelVisibility(ui) {
    Compacted for Engine v2 0.2.1.
    ============================================================ */
 
-const MAX_SAMPLES = 48;
+const MAX_SAMPLES = 72;
 const samples = [];
+const trendState = { open: false, minimised: false, lastDrawMs: 0 };
+const TREND_METRICS = Object.freeze([
+  { id: 'waterShare', label: 'Water share', color: '#66c2ff', min: 0, max: 1, percent: true },
+  { id: 'iceShare', label: 'Ice share', color: '#d7f0ff', min: 0, max: 1, percent: true },
+  { id: 'tempC', label: 'Avg temperature', color: '#ffb267', min: -30, max: 45, percent: false },
+  { id: 'habitability', label: 'Habitable share', color: '#9be282', min: 0, max: 1, percent: true },
+  { id: 'primitiveLife', label: 'Primitive life', color: '#47d67a', min: 0, max: 1, percent: false },
+  { id: 'biosphereHealth', label: 'Biosphere health', color: '#4edbb7', min: 0, max: 1, percent: false },
+  { id: 'settlement', label: 'Settlements', color: '#ffd166', min: 0, max: 1, percent: true },
+  { id: 'collapseRisk', label: 'Collapse risk', color: '#ff7f7f', min: 0, max: 1, percent: false }
+]);
 
-function updateTrends(container, sample) {
+function initialiseFloatingTrends(ui) {
+  if (!ui.toggleTrends || !ui.trendsCard) return;
+  ui.toggleTrends.addEventListener('click', () => openTrends(ui));
+  if (ui.closeTrends) ui.closeTrends.addEventListener('click', () => closeTrends(ui));
+  if (ui.minimiseTrends) ui.minimiseTrends.addEventListener('click', () => minimiseTrends(ui));
+  if (ui.resetTrendsHistory) ui.resetTrendsHistory.addEventListener('click', () => { samples.length = 0; drawTrends(ui); });
+  if (ui.trendsMetricToggles) ui.trendsMetricToggles.addEventListener('change', () => drawTrends(ui));
+  makeDraggableTrends(ui);
+}
+
+function openTrends(ui) {
+  ui.trendsCard.classList.remove('panel-hidden');
+  ui.trendsCard.classList.remove('minimised');
+  trendState.open = true;
+  trendState.minimised = false;
+  if (ui.toggleTrends) ui.toggleTrends.textContent = 'Hide Trends';
+  drawTrends(ui);
+}
+
+function closeTrends(ui) {
+  ui.trendsCard.classList.add('panel-hidden');
+  trendState.open = false;
+  if (ui.toggleTrends) ui.toggleTrends.textContent = 'Open Trends';
+}
+
+function minimiseTrends(ui) {
+  trendState.minimised = !ui.trendsCard.classList.contains('minimised');
+  ui.trendsCard.classList.toggle('minimised', trendState.minimised);
+  if (ui.minimiseTrends) ui.minimiseTrends.textContent = trendState.minimised ? 'Restore' : 'Min';
+  if (!trendState.minimised) drawTrends(ui);
+}
+
+function makeDraggableTrends(ui) {
+  if (!ui.trendsHeader || !ui.trendsCard) return;
+  let drag = null;
+  ui.trendsHeader.addEventListener('pointerdown', (event) => {
+    if (event.target && event.target.tagName === 'BUTTON') return;
+    const rect = ui.trendsCard.getBoundingClientRect();
+    drag = { dx: event.clientX - rect.left, dy: event.clientY - rect.top };
+    ui.trendsHeader.setPointerCapture(event.pointerId);
+  });
+  ui.trendsHeader.addEventListener('pointermove', (event) => {
+    if (!drag) return;
+    const w = ui.trendsCard.offsetWidth || 320;
+    const h = ui.trendsCard.offsetHeight || 42;
+    const left = clamp(event.clientX - drag.dx, 6, Math.max(6, window.innerWidth - w - 6));
+    const top = clamp(event.clientY - drag.dy, 6, Math.max(6, window.innerHeight - h - 6));
+    ui.trendsCard.style.left = `${left}px`;
+    ui.trendsCard.style.top = `${top}px`;
+    ui.trendsCard.style.right = 'auto';
+    ui.trendsCard.style.bottom = 'auto';
+  });
+  ui.trendsHeader.addEventListener('pointerup', (event) => {
+    drag = null;
+    try { ui.trendsHeader.releasePointerCapture(event.pointerId); } catch (_) {}
+  });
+}
+
+function updateTrends(sample) {
   if (!sample) return;
   samples.push(sample);
   while (samples.length > MAX_SAMPLES) samples.shift();
+  drawTrends(ui);
+}
+
+function selectedTrendMetricIds(ui) {
+  const checked = Array.from(ui.trendsMetricToggles?.querySelectorAll('input[data-trend]:checked') || []).map((item) => item.dataset.trend);
+  return checked.length ? checked : TREND_METRICS.slice(0, 4).map((item) => item.id);
+}
+
+function drawTrends(ui) {
+  if (!ui.trendsCanvas || !ui.trendsCard || ui.trendsCard.classList.contains('panel-hidden') || ui.trendsCard.classList.contains('minimised')) {
+    if (ui.trendsStatus) ui.trendsStatus.textContent = `${samples.length}/${MAX_SAMPLES} samples`;
+    return;
+  }
+  const start = performance.now();
+  const canvas = ui.trendsCanvas;
+  const rect = canvas.getBoundingClientRect();
+  const dpr = Math.max(1, Math.min(2, globalThis.devicePixelRatio || 1));
+  const w = Math.max(320, Math.floor((rect.width || 500) * dpr));
+  const h = Math.max(160, Math.floor((rect.height || 200) * dpr));
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = 'rgba(4,12,20,0.96)';
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.lineWidth = 1;
+  const padL = 42 * dpr, padR = 16 * dpr, padT = 18 * dpr, padB = 24 * dpr;
+  for (let i = 0; i <= 4; i += 1) {
+    const y = padT + (h - padT - padB) * i / 4;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke();
+  }
+  const ids = selectedTrendMetricIds(ui);
+  const metrics = TREND_METRICS.filter((m) => ids.includes(m.id));
+  if (samples.length < 2) {
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.font = `${12 * dpr}px sans-serif`;
+    ctx.fillText('Waiting for trend samples.', padL, h * 0.5);
+  } else {
+    metrics.forEach((metric) => {
+      ctx.strokeStyle = metric.color;
+      ctx.lineWidth = 2 * dpr;
+      ctx.beginPath();
+      samples.forEach((s, idx) => {
+        const raw = Number(s[metric.id] ?? 0);
+        const norm = clamp01((raw - metric.min) / Math.max(1e-9, metric.max - metric.min));
+        const x = padL + (w - padL - padR) * idx / Math.max(1, samples.length - 1);
+        const y = padT + (h - padT - padB) * (1 - norm);
+        if (idx === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    });
+  }
+  let lx = padL;
+  ctx.font = `${10.5 * dpr}px sans-serif`;
+  metrics.forEach((metric) => {
+    ctx.fillStyle = metric.color;
+    ctx.fillRect(lx, h - 15 * dpr, 8 * dpr, 8 * dpr);
+    ctx.fillStyle = 'rgba(235,245,250,0.82)';
+    ctx.fillText(metric.label, lx + 12 * dpr, h - 7 * dpr);
+    lx += (metric.label.length * 6 + 24) * dpr;
+  });
   const latest = samples[samples.length - 1];
-  const first = samples[0] || latest;
-  container.innerHTML = `
-    <div class="trend-row"><span>Samples</span><strong>${samples.length}/${MAX_SAMPLES}</strong></div>
-    <div class="trend-row"><span>Year range</span><strong>${first.year} to ${latest.year}</strong></div>
-    <div class="trend-row"><span>Temperature</span><strong>${formatDelta(first.tempC, latest.tempC, ' °C')}</strong></div>
-    <div class="trend-row"><span>Water share</span><strong>${formatDelta(first.waterShare, latest.waterShare, '', true)}</strong></div>
-    <div class="trend-row"><span>Ice share</span><strong>${formatDelta(first.iceShare, latest.iceShare, '', true)}</strong></div>
-    <div class="trend-row"><span>Habitability</span><strong>${formatDelta(first.habitability, latest.habitability, '', true)}</strong></div>
-    <div class="trend-row"><span>Primitive life</span><strong>${formatDelta(first.primitiveLife, latest.primitiveLife, '', false)}</strong></div>
-    <div class="trend-row"><span>Dormant life</span><strong>${formatDelta(first.dormantLife, latest.dormantLife, '', false)}</strong></div>
-    <div class="trend-row"><span>Primitive biomass</span><strong>${formatDelta(first.primitiveBiomass, latest.primitiveBiomass, '', false)}</strong></div>
-    <div class="trend-row"><span>Biosphere health</span><strong>${formatDelta(first.biosphereHealth, latest.biosphereHealth, '', false)}</strong></div>
-    <div class="trend-row"><span>Extinction risk</span><strong>${formatDelta(first.extinctionRisk, latest.extinctionRisk, '', false)}</strong></div>
-    <div class="trend-row"><span>Life viability</span><strong>${formatDelta(first.lifeViability, latest.lifeViability, '', false)}</strong></div>
-    <div class="trend-row"><span>Biodiversity</span><strong>${formatDelta(first.biodiversity, latest.biodiversity, '', false)}</strong></div>
-    <div class="trend-row"><span>Settlement</span><strong>${formatDelta(first.settlement, latest.settlement, '', false)}</strong></div>
-    <div class="trend-row"><span>Collapse risk</span><strong>${formatDelta(first.collapseRisk, latest.collapseRisk, '', false)}</strong></div>
-  `;
+  if (ui.trendsStatus) ui.trendsStatus.textContent = `${samples.length}/${MAX_SAMPLES} samples`;
+  if (ui.trendsReadout && latest) ui.trendsReadout.textContent = `Latest year ${latest.year}: water ${formatPct(latest.waterShare)}, ice ${formatPct(latest.iceShare)}, temp ${formatNum(latest.tempC,1)} °C, collapse ${formatNum(latest.collapseRisk,3)}.`;
+  trendState.lastDrawMs = performance.now() - start;
 }
 
 function formatDelta(first, latest, suffix, percent = false) {
@@ -1740,7 +2079,7 @@ let hoverCell = -1;
 let lastSummary = null;
 let lastDiagnostics = null;
 let hoverRedrawQueued = false;
-const mainMetrics = { lastRenderMs: 0, lastDomMs: 0 };
+const mainMetrics = { lastRenderMs: 0, lastDomMs: 0, lastTextureMs: 0 };
 
 /* ============================================================
    Worker lifecycle
@@ -1762,9 +2101,9 @@ function startWorker() {
     initialGenerateSent = false;
     clearWorkerStartupTimer();
 
-    worker = new Worker('./simulation-worker.js?v=0.2.1');
+    worker = new Worker('./simulation-worker.js?v=0.2.2');
     setStatus(ui, 'Worker: external simulation-worker.js starting.');
-    addEvent(ui, 'External Worker attempted: simulation-worker.js?v=0.2.1.');
+    addEvent(ui, 'External Worker attempted: simulation-worker.js?v=0.2.2.');
 
     worker.addEventListener('message', onWorkerMessage);
     worker.addEventListener('error', (event) => {
@@ -1836,10 +2175,10 @@ function onWorkerMessage(event) {
     renderer.setRenderData(payload);
     redraw();
   } else if (type === EVENTS.TREND_SAMPLE) {
-    updateTrends(ui.trends, payload);
+    updateTrends(payload);
   } else if (type === EVENTS.PROBE_RESULT || type === EVENTS.PROBE_SUMMARY) {
     renderProbeResult(ui, payload);
-    addEvent(ui, type === EVENTS.PROBE_SUMMARY ? 'Worker probes completed.' : `Worker probe completed: ${payload.id}`);
+    addEvent(ui, type === EVENTS.PROBE_SUMMARY ? 'Worker health checks completed.' : `Worker health check completed: ${payload.id}`);
   } else if (type === EVENTS.DIAGNOSTIC_SUMMARY) {
     lastDiagnostics = payload;
     renderDiagnostics(ui, payload, mainMetrics);
@@ -1851,6 +2190,7 @@ function onWorkerMessage(event) {
 
 function redraw() {
   mainMetrics.lastRenderMs = renderer.render(currentRenderSettings());
+  mainMetrics.lastTextureMs = renderer.getTextureMs ? renderer.getTextureMs() : 0;
   if (lastDiagnostics) renderDiagnostics(ui, lastDiagnostics, mainMetrics);
 }
 
@@ -1916,15 +2256,27 @@ function rotate(delta) {
   renderer.rotate(delta);
 }
 
+function rotatePitch(delta) {
+  renderer.rotatePitch(delta);
+}
+
+function rotateLight(delta) {
+  renderer.rotateLight(delta);
+}
+
+function resetLight() {
+  renderer.resetLight();
+}
+
 function resetView() {
   renderer.resetView();
 }
 
-bindControls(ui, { command, toggleRun, applyToolToSelected, clickCanvas, hover, rotate, resetView, redraw, addEvent: (text) => addEvent(ui, text) });
+bindControls(ui, { command, toggleRun, applyToolToSelected, clickCanvas, hover, rotate, rotatePitch, rotateLight, resetLight, resetView, redraw, addEvent: (text) => addEvent(ui, text) });
 globalThis.addEventListener('resize', () => { renderer.updateViewport(true); redraw(); });
 createWorker();
 
-addEvent(ui, 'Engine v2 main thread initialised inline in index.html. texture-first Natural Planet cleanup active. Deploy index.html and simulation-worker.js together to GitHub Pages or another static host.');
+addEvent(ui, 'Engine v2 main thread initialised inline in index.html. high-resolution spherical renderer active. Deploy index.html and simulation-worker.js together to GitHub Pages or another static host.');
 </script>
 </body>
 </html>

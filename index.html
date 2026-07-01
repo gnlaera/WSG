@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
-  <title>WSG Engine v2 Build 0.2.2 - High-Resolution Spherical Renderer</title>
+  <title>WSG Engine v2 Build 0.2.3 - Coherent Planet Surface</title>
   <style>
 :root {
   color-scheme: dark;
@@ -146,8 +146,8 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
 .feedbackPanel { padding: 12px; display: flex; flex-direction: column; gap: 12px; overflow: auto; }
 .goalText { color: var(--text); font-size: 13px; line-height: 1.36; }
 .milestoneList { display: grid; gap: 6px; margin-top: 8px; }
-.actionLog, .event-log, .probe-output { min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; }
-.log-entry, .probe { font-size: 12px; color: var(--muted); padding: 8px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.05); }
+.probe-output { min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; }
+.probe { font-size: 12px; color: var(--muted); padding: 8px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.05); }
 .probe.pass strong { color: var(--good); }
 .probe.warn strong { color: var(--warn); }
 .probe.fail strong { color: var(--bad); }
@@ -218,8 +218,8 @@ body.bottom-info-collapsed .layerLegend { display: none; }
 <div class="app">
   <header class="topbar">
     <div class="brand">
-      <strong id="build-label">WSG Engine v2 Build 0.2.2 - High-Resolution Spherical Renderer</strong>
-      <span id="summary-line">High-resolution spherical renderer with 11,520 triangle faces, texture-first Natural Planet surface, yaw/pitch rotation, collapsible panes, and floating Trends.</span>
+      <strong id="build-label">WSG Engine v2 Build 0.2.3 - Coherent Planet Surface</strong>
+      <span id="summary-line">Coherent high-resolution planet surface with semantic terrain classes, coast-aware texture cache, polished trackball rotation, and clean player shell.</span>
     </div>
     <label class="small headerTemplateControl" title="World template">
       <span>Template</span>
@@ -304,7 +304,7 @@ body.bottom-info-collapsed .layerLegend { display: none; }
         </div>
       </div>
       <div id="status-line" class="status-line quick-start">Quick Start: Generate planet, select tool, click planet, Step or Run time, inspect consequences.</div>
-      <div id="layer-legend" class="status-line layerLegend">Layer legend: Natural Planet uses a cached texture-first surface with terrain, water, ice, cloud haze, atmosphere and lighting.</div>
+      <div id="layer-legend" class="status-line layerLegend">Layer legend: Natural Planet uses a coherent cached texture surface with semantic terrain classes, preserved coastlines, ice edges, relief, cloud haze and visual-only lighting.</div>
     </section>
 
     <aside class="panel feedbackPanel info-column" aria-label="World panels">
@@ -374,7 +374,7 @@ body.bottom-info-collapsed .layerLegend { display: none; }
   </section>
 
   <footer class="footer">
-    <span>Engine v2 high-resolution spherical renderer. Two files only: index.html and simulation-worker.js. Canvas 2D renderer; Worker-owned mesh, arrays, tools, validation, and render data.</span>
+    <span>Engine v2 coherent planet surface. Two files only: index.html and simulation-worker.js. Canvas 2D renderer; Worker-owned mesh, semantic surface arrays, tools, validation, and render data.</span>
     <span>Two-file Worker architecture</span>
   </footer>
 </div>
@@ -390,7 +390,7 @@ body.bottom-info-collapsed .layerLegend { display: none; }
    Compacted for Engine v2 0.2.1.
    ============================================================ */
 
-const BUILD_LABEL = 'WSG Engine v2 Build 0.2.2 - High-Resolution Spherical Renderer';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.2.3 - Coherent Planet Surface';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',
@@ -494,7 +494,16 @@ const LAYERS = Object.freeze([
   { id: 'civilisationStress', label: 'Civilisation Stress' },
   { id: 'collapseRisk', label: 'Collapse Risk' },
   { id: 'recoveryCapacity', label: 'Recovery Capacity' },
-  { id: 'populationIndex', label: 'Population Index' }
+  { id: 'populationIndex', label: 'Population Index' },
+  { id: 'terrainClass', label: 'Terrain Class' },
+  { id: 'oceanDepth', label: 'Ocean Depth Proxy' },
+  { id: 'shallowWater', label: 'Shallow Water / Shelf' },
+  { id: 'coastProximity', label: 'Coast Proximity' },
+  { id: 'landRelief', label: 'Land Relief Proxy' },
+  { id: 'aridityProxy', label: 'Aridity Proxy' },
+  { id: 'wetnessProxy', label: 'Wetness Proxy' },
+  { id: 'vegetationPotential', label: 'Vegetation Potential' },
+  { id: 'iceType', label: 'Ice Type' },
 ]);
 
 const TOOLS = Object.freeze([
@@ -684,7 +693,7 @@ function initialiseUi(ui) {
   updateVisualReadouts(ui);
   if (ui.applyTool) ui.applyTool.disabled = true;
   ui.seed.value = 'ENGINE-V2-001';
-  // Technical migration ledger and event log are not part of the player-facing surface in this build.
+  // Internal health checks remain in the optional diagnostics drawer, hidden by default.
 }
 
 function renderSummary(ui, summary) {
@@ -790,6 +799,17 @@ function layersToInspectForTool(toolId) {
 }
 
 
+
+function terrainClassLabel(code) {
+  const labels = ['deep ocean', 'mid ocean', 'shallow shelf', 'coast', 'lowland', 'highland', 'mountain', 'land ice / snow', 'sea ice', 'arid / desert', 'wet or vegetation potential'];
+  return labels[Number(code) | 0] || 'unclassified';
+}
+
+function iceTypeLabel(code) {
+  const labels = ['none', 'sea ice', 'land snow / ice'];
+  return labels[Number(code) | 0] || 'unknown';
+}
+
 function renderSelected(ui, selected) {
   if (!selected || selected.cellId < 0) {
     if (ui.applyTool) ui.applyTool.disabled = true;
@@ -801,11 +821,20 @@ function renderSelected(ui, selected) {
     <div class="metric"><span>Cell</span><strong>${selected.cellId}</strong></div>
     <div class="metric"><span>Latitude</span><strong>${formatNum(selected.latitude, 1)}°</strong></div>
     <div class="metric"><span>Longitude</span><strong>${formatNum(selected.longitude, 1)}°</strong></div>
+    <div class="metric"><span>Terrain class</span><strong>${escapeHtml(selected.terrainClassLabel || terrainClassLabel(selected.terrainClass))}</strong></div>
     <div class="metric"><span>Neighbours</span><strong>${selected.neighbours.join(', ')}</strong></div>
     <div class="metric"><span>Elevation</span><strong>${formatNum(selected.elevation, 3)}</strong></div>
+    <div class="metric"><span>Ocean depth</span><strong>${formatNum(selected.oceanDepth, 3)}</strong></div>
+    <div class="metric"><span>Shallow / shelf</span><strong>${formatNum(selected.shallowWater, 3)}</strong></div>
+    <div class="metric"><span>Coast proximity</span><strong>${formatNum(selected.coastProximity, 3)}</strong></div>
+    <div class="metric"><span>Land relief</span><strong>${formatNum(selected.landRelief, 3)}</strong></div>
     <div class="metric"><span>Water</span><strong>${formatNum(selected.water, 3)}</strong></div>
     <div class="metric"><span>Temperature</span><strong>${formatNum(selected.temperatureC, 1)} °C</strong></div>
     <div class="metric"><span>Ice</span><strong>${formatNum(selected.ice, 3)}</strong></div>
+    <div class="metric"><span>Ice type</span><strong>${escapeHtml(iceTypeLabel(selected.iceType))}</strong></div>
+    <div class="metric"><span>Aridity proxy</span><strong>${formatNum(selected.aridityProxy, 3)}</strong></div>
+    <div class="metric"><span>Wetness proxy</span><strong>${formatNum(selected.wetnessProxy, 3)}</strong></div>
+    <div class="metric"><span>Vegetation potential</span><strong>${formatNum(selected.vegetationPotential, 3)}</strong></div>
     <div class="metric"><span>Habitability</span><strong>${formatNum(selected.habitability, 3)}</strong></div>
     <div class="metric"><span>Primitive life</span><strong>${formatNum(selected.primitiveLife, 3)}</strong></div>
     <div class="metric"><span>Dormant life</span><strong>${formatNum(selected.dormantLife, 3)}</strong></div>
@@ -865,13 +894,7 @@ function renderProbeResult(ui, payload) {
 }
 
 function addEvent(ui, text) {
-  const time = new Date().toLocaleTimeString();
-  const entry = document.createElement('div');
-  entry.className = 'log-entry';
-  entry.textContent = `${time} | ${text}`;
-  if (!ui.eventLog) return;
-  ui.eventLog.prepend(entry);
-  while (ui.eventLog.children.length > 40) ui.eventLog.removeChild(ui.eventLog.lastChild);
+  if (ui?.statusLine && text) ui.statusLine.textContent = text;
 }
 
 function setStatus(ui, text) {
@@ -953,7 +976,7 @@ function updateVisualReadouts(ui) {
 }
 
 function layerLegendText(mode, layerId, layerLabel) {
-  if (mode === 'natural') return 'Natural Planet: cached texture-first terrain, bathymetry, coastlines, ice, cloud haze, atmosphere rim, and directional lighting. Values remain simplified model indices.';
+  if (mode === 'natural') return 'Natural Planet: coherent texture-first surface using semantic terrain classes, bathymetry, coastlines, ice, cloud haze, atmosphere rim, and directional lighting. Values remain simplified model indices.';
   const families = {
     elevation: 'Elevation model index: deep basin / lowland / highland / mountain.',
     water: 'Water model index: dry / damp / shallow or coastal / saturated.',
@@ -974,7 +997,16 @@ function layerLegendText(mode, layerId, layerLabel) {
     waterStress: 'Water stress model index: low / moderate / high / extreme.',
     civilisationSuitability: 'Civilisation suitability model index: poor / marginal / viable / strong.',
     settlements: 'Settlements model index: none / sparse / established / concentrated.',
-    collapseRisk: 'Collapse risk model index: low / elevated / high / extreme.'
+    collapseRisk: 'Collapse risk model index: low / elevated / high / extreme.',
+    terrainClass: 'Terrain class proxy: deep ocean / shelf / coast / lowland / highland / mountain / ice / arid / wet-potential.',
+    oceanDepth: 'Ocean depth proxy: shelf / mid ocean / deep basin.',
+    shallowWater: 'Shallow water and shelf proxy: none / coastal shelf / strong shelf signal.',
+    coastProximity: 'Coastline proximity proxy: interior / near coast / coastline edge.',
+    landRelief: 'Land relief proxy: flat / rolling / highland / mountain.',
+    aridityProxy: 'Aridity proxy: wet / semi-arid / arid / desert-like.',
+    wetnessProxy: 'Wetness proxy: dry / moderate / wet / saturated.',
+    vegetationPotential: 'Vegetation-potential proxy: barren / marginal / favourable / high. This is not actual plant life.',
+    iceType: 'Ice type proxy: none / sea ice / land snow-ice.'
   };
   return `${layerLabel}: ${families[layerId] || 'simplified model index: low / moderate / high / extreme.'}`;
 }
@@ -1010,9 +1042,6 @@ function renderProbeLine(item) {
   return `<div class="probe ${statusClass}"><strong>${escapeHtml(item.status || 'unknown').toUpperCase()}</strong> ${escapeHtml(item.label || item.id)}<br><span>${escapeHtml(item.detail || '')}</span></div>`;
 }
 
-function migrationLedgerHtml() {
-  return '<p>Internal migration notes are not exposed in the player-facing shell.</p>';
-}
 
 
 function createRenderer(canvas) {
@@ -1157,10 +1186,10 @@ function createRenderer(canvas) {
   }
 
   function ensureNaturalTexture(cloudsEnabled) {
-    const textureSignature = [data.count, data.tick, data.year, data.meshQuality, cloudsEnabled ? 1 : 0, data.bytes || 0, 'structured-v2'].join('|');
+    const textureSignature = [data.count, data.tick, data.year, data.meshQuality, cloudsEnabled ? 1 : 0, data.bytes || 0, 'coherent-surface-v3'].join('|');
     if (!naturalTextureDirty && naturalTextureSignature === textureSignature && naturalTextureImage) return;
     const start = performance.now();
-    const texW = data.count >= 10000 ? 960 : data.count >= 5000 ? 832 : 704;
+    const texW = data.count >= 10000 ? 1280 : data.count >= 5000 ? 1024 : 832;
     const texH = Math.floor(texW / 2);
     if (!naturalTextureCanvas) {
       naturalTextureCanvas = document.createElement('canvas');
@@ -1188,7 +1217,8 @@ function createRenderer(canvas) {
       dst[idx + 3] = 255;
       classes[p] = terrainVisualClass(data, cell);
     }
-    classAwareSmooth(dst, classes, texW, texH, 1);
+    classAwareSmooth(dst, classes, texW, texH, 2);
+    sharpenSemanticEdges(dst, classes, texW, texH, textureCellMap, data);
     addLatitudeAndCoastAccents(dst, texW, texH, textureCellMap, data);
     tctx.putImageData(image, 0, 0);
     naturalTextureImage = tctx.getImageData(0, 0, texW, texH);
@@ -1251,6 +1281,34 @@ function createRenderer(canvas) {
     textureMapSignature = signature;
   }
 
+
+  function sharpenSemanticEdges(buf, classes, w, h, map, source) {
+    // Coast and ice edges should read as boundaries, not smeared paint.
+    for (let y = 1; y < h - 1; y += 1) {
+      for (let x = 0; x < w; x += 1) {
+        const p = y * w + x;
+        const c = classes[p];
+        const right = classes[y * w + ((x + 1) % w)];
+        const down = classes[(y + 1) * w + x];
+        if (c === right && c === down) continue;
+        const cell = map[p];
+        const idx = p * 4;
+        const coast = clamp01(source.coastProximity?.[cell] ?? 0);
+        const ice = clamp01(source.ice?.[cell] ?? 0);
+        if (c <= 2 || right <= 2 || down <= 2 || coast > 0.35) {
+          buf[idx] = Math.round(lerp(buf[idx], 210, 0.14));
+          buf[idx + 1] = Math.round(lerp(buf[idx + 1], 196, 0.12));
+          buf[idx + 2] = Math.round(lerp(buf[idx + 2], 138, 0.08));
+        }
+        if (ice > 0.28) {
+          buf[idx] = Math.round(lerp(buf[idx], 242, 0.12));
+          buf[idx + 1] = Math.round(lerp(buf[idx + 1], 248, 0.12));
+          buf[idx + 2] = Math.round(lerp(buf[idx + 2], 252, 0.12));
+        }
+      }
+    }
+  }
+
   function classAwareSmooth(buf, classes, w, h, passes) {
     const tmp = new Uint8ClampedArray(buf.length);
     for (let pass = 0; pass < passes; pass += 1) {
@@ -1282,11 +1340,12 @@ function createRenderer(canvas) {
 
   function classesCompatible(a, b) {
     if (a === b) return true;
-    const landA = a >= 2 && a <= 6;
-    const landB = b >= 2 && b <= 6;
-    const waterA = a <= 1;
-    const waterB = b <= 1;
-    return (landA && landB) || (waterA && waterB);
+    const waterish = (c) => c === 0 || c === 1 || c === 2 || c === 8;
+    const landish = (c) => c === 3 || c === 4 || c === 5 || c === 6 || c === 7 || c === 9 || c === 10;
+    if (waterish(a) && waterish(b)) return true;
+    if (landish(a) && landish(b)) return true;
+    if ((a === 3 && (landish(b) || b === 2)) || (b === 3 && (landish(a) || a === 2))) return true;
+    return false;
   }
 
   function addLatitudeAndCoastAccents(buf, w, h, map, source) {
@@ -1580,73 +1639,87 @@ function drawSelectedCell(ctx, projection, radius, selectedCell, hoverCell, tool
 }
 
 function naturalRgb(data, i, light, cloudsEnabled) {
-  const water = clamp01(data.water[i] || 0);
-  const ice = clamp01(data.ice[i] || 0);
-  const life = clamp01(data.primitiveLife[i] || 0);
-  const mats = clamp01(data.producerMats[i] || 0);
-  const elev = clamp01(data.elevation[i] || 0);
-  const rainfall = clamp01(data.rainfall?.[i] || 0);
-  const humidity = clamp01(data.humidity?.[i] || 0);
-  const heat = clamp01(data.heatStress?.[i] || 0);
-  const nutrients = clamp01(data.nutrientLevel?.[i] || 0);
+  const cls = Number(data.terrainClass?.[i] ?? terrainVisualClass(data, i)) | 0;
+  const water = clamp01(data.water?.[i] || 0);
+  const ice = clamp01(data.ice?.[i] || 0);
+  const elev = clamp01(data.elevation?.[i] || 0);
+  const depth = clamp01(data.oceanDepth?.[i] ?? (water > 0.5 ? (water - 0.5) * 2 : 0));
+  const shelf = clamp01(data.shallowWater?.[i] || 0);
+  const relief = clamp01(data.landRelief?.[i] ?? data.slopeProxy?.[i] ?? 0);
+  const arid = clamp01(data.aridityProxy?.[i] ?? 0);
+  const wet = clamp01(data.wetnessProxy?.[i] ?? 0);
+  const vegPotential = clamp01(data.vegetationPotential?.[i] ?? 0);
+  const life = clamp01(data.primitiveLife?.[i] || 0);
+  const mats = clamp01(data.producerMats?.[i] || 0);
   const settlements = clamp01(data.settlements?.[i] || 0);
-  const slope = clamp01(data.slopeProxy?.[i] ?? Math.abs(elev - 0.5) * 0.9);
-  const coast = clamp01(data.coastProximity?.[i] ?? (water > 0.20 && water < 0.72 ? 0.7 : 0));
+  const coast = clamp01(data.coastProximity?.[i] || 0);
   const clouds = cloudsEnabled ? clamp01(data.cloudCover?.[i] || 0) : 0;
   const latAbs = Math.abs(data.latitude?.[i] || 0) / 90;
-  const daylight = clamp01(light);
-  let r;
-  let g;
-  let b;
-  if (water > 0.50) {
-    const depth = clamp01((water - 0.50) / 0.50);
-    r = lerp(26, 6, depth);
-    g = lerp(98, 46, depth);
-    b = lerp(152, 116, depth);
-    const shallow = clamp01(1 - depth) * coast;
-    r = lerp(r, 44, shallow * 0.70);
-    g = lerp(g, 148, shallow * 0.75);
-    b = lerp(b, 182, shallow * 0.55);
-  } else {
-    const arid = clamp01(heat * 0.45 + (1 - rainfall) * 0.40 + (1 - humidity) * 0.25);
-    const vegetated = clamp01((life * 0.60 + mats * 0.28 + nutrients * 0.10) * (1 - heat * 0.55) * (1 - ice * 0.85));
-    if (elev > 0.78) {
-      r = lerp(116, 178, slope);
-      g = lerp(108, 170, slope);
-      b = lerp(96, 160, slope);
-    } else if (arid > 0.55) {
-      r = lerp(124, 206, arid);
-      g = lerp(98, 156, arid);
-      b = lerp(64, 82, arid);
-    } else {
-      r = lerp(92, 52, vegetated);
-      g = lerp(108, 150, vegetated);
-      b = lerp(72, 70, vegetated);
-    }
-    r = lerp(r, 210, coast * 0.18);
-    g = lerp(g, 188, coast * 0.13);
-    b = lerp(b, 118, coast * 0.10);
+  let r, g, b;
+
+  if (cls === 0) { // deep ocean
+    r = lerp(6, 12, 1 - depth); g = lerp(34, 58, 1 - depth); b = lerp(96, 138, 1 - depth);
+  } else if (cls === 1) { // mid ocean
+    r = 14; g = 76; b = 142;
+  } else if (cls === 2) { // shallow shelf
+    r = lerp(24, 58, shelf); g = lerp(118, 166, shelf); b = lerp(168, 192, shelf);
+  } else if (cls === 8) { // sea ice
+    r = 198; g = 228; b = 240;
+  } else if (cls === 7) { // land snow/ice
+    r = 226; g = 234; b = 232;
+  } else if (cls === 6) { // mountain
+    r = lerp(126, 198, relief); g = lerp(118, 190, relief); b = lerp(104, 178, relief);
+  } else if (cls === 5) { // highland
+    r = lerp(122, 148, relief); g = lerp(112, 136, relief); b = lerp(84, 102, relief);
+  } else if (cls === 9) { // desert/arid
+    r = lerp(156, 218, arid); g = lerp(118, 168, arid); b = lerp(70, 92, arid);
+  } else if (cls === 10) { // wet potential, not actual plants unless life exists
+    const green = clamp01(vegPotential * 0.70 + life * 0.45 + mats * 0.30);
+    r = lerp(96, 44, green); g = lerp(118, 154, green); b = lerp(76, 80, green);
+  } else if (cls === 3) { // coast
+    r = 166; g = 146; b = 92;
+  } else { // lowland
+    const semi = clamp01(wet * 0.45 + vegPotential * 0.22 - arid * 0.18);
+    r = lerp(112, 74, semi); g = lerp(112, 126, semi); b = lerp(78, 74, semi);
   }
-  if (ice > 0.12) {
-    const polarIce = clamp01(ice * (0.55 + latAbs * 0.45));
-    const seaIce = water > 0.50 ? clamp01(ice * 0.85) : 0;
-    const a = clamp01(Math.max(polarIce, seaIce));
-    r = lerp(r, 220, a);
-    g = lerp(g, 236, a);
-    b = lerp(b, seaIce > polarIce ? 246 : 238, a);
+
+  // Coastline and shelf band. Keep it narrow and class-aware.
+  if (coast > 0.25 && cls !== 0 && cls !== 8 && cls !== 7) {
+    const c = clamp01((coast - 0.25) / 0.75);
+    r = lerp(r, 210, c * 0.18); g = lerp(g, 190, c * 0.14); b = lerp(b, 126, c * 0.10);
   }
-  const relief = 0.84 + slope * 0.18 + clamp01(elev - 0.55) * 0.10 - clamp01(0.42 - elev) * 0.08;
-  const haze = cloudsEnabled ? clamp01(clouds * 0.42 + humidity * 0.08) : 0;
-  r = lerp(r, 238, haze);
-  g = lerp(g, 242, haze);
-  b = lerp(b, 244, haze);
+
+  // Ice layer respects sea ice vs land ice.
+  if (ice > 0.18) {
+    const a = clamp01(ice * (cls === 8 ? 0.70 : 0.82) * (0.60 + latAbs * 0.40));
+    r = lerp(r, cls === 8 ? 204 : 238, a);
+    g = lerp(g, cls === 8 ? 230 : 244, a);
+    b = lerp(b, cls === 8 ? 244 : 246, a);
+  }
+
+  // Relief and bathymetry are shading factors, not random per-triangle colour.
+  const terrainShade = (cls <= 2 || cls === 8) ? (0.82 + (1 - depth) * 0.12 + shelf * 0.05) : (0.86 + relief * 0.20 + clamp01(elev - 0.58) * 0.08 - arid * 0.04);
+  const micro = subtleSurfaceMicroTexture(data, i, cls);
+  r = clamp(r * terrainShade + micro, 0, 255);
+  g = clamp(g * terrainShade + micro * 0.65, 0, 255);
+  b = clamp(b * terrainShade + micro * 0.35, 0, 255);
+
   if (settlements > 0.04) {
-    r = lerp(r, 255, settlements * 0.42);
-    g = lerp(g, 208, settlements * 0.25);
-    b = lerp(b, 98, settlements * 0.18);
+    r = lerp(r, 255, settlements * 0.40);
+    g = lerp(g, 210, settlements * 0.25);
+    b = lerp(b, 100, settlements * 0.16);
   }
-  const illum = 0.46 + daylight * 0.52;
-  return [Math.round(clamp(r * illum * relief, 0, 255)), Math.round(clamp(g * illum * relief, 0, 255)), Math.round(clamp(b * illum * relief, 0, 255))];
+
+  const haze = cloudsEnabled ? clamp01(clouds * 0.32 + wet * 0.05) : 0;
+  r = lerp(r, 238, haze); g = lerp(g, 242, haze); b = lerp(b, 244, haze);
+  const illum = 0.52 + clamp01(light) * 0.48;
+  return [Math.round(clamp(r * illum, 0, 255)), Math.round(clamp(g * illum, 0, 255)), Math.round(clamp(b * illum, 0, 255))];
+}
+
+function subtleSurfaceMicroTexture(data, i, cls) {
+  const s = Math.sin((data.centerX?.[i] || 0) * 37.2 + (data.centerY?.[i] || 0) * 21.7 + (data.centerZ?.[i] || 0) * 29.4);
+  const amp = (cls <= 2 || cls === 8) ? 2.2 : cls === 6 || cls === 5 ? 7.5 : 4.2;
+  return s * amp;
 }
 
 function naturalColor(data, i, light, cloudsEnabled) {
@@ -1655,26 +1728,31 @@ function naturalColor(data, i, light, cloudsEnabled) {
 }
 
 function terrainVisualClass(data, i) {
+  if (data.terrainClass) return Number(data.terrainClass[i]) | 0;
   const water = clamp01(data.water?.[i] ?? 0);
   const ice = clamp01(data.ice?.[i] ?? 0);
   const elev = clamp01(data.elevation?.[i] ?? 0);
   const rainfall = clamp01(data.rainfall?.[i] ?? 0);
   const heat = clamp01(data.heatStress?.[i] ?? 0);
   const life = clamp01(data.primitiveLife?.[i] ?? 0);
+  if (water > 0.50 && ice > 0.35) return 8;
   if (ice > 0.35) return 7;
-  if (water > 0.65) return 0;
-  if (water > 0.45) return 1;
+  if (water > 0.70) return 0;
+  if (water > 0.50) return 1;
+  if (water > 0.40) return 2;
   if (elev > 0.78) return 6;
-  if (life > 0.04 || rainfall > 0.55) return 5;
-  if (heat > 0.55 || rainfall < 0.22) return 4;
-  return 2;
+  if (life > 0.04 || rainfall > 0.55) return 10;
+  if (heat > 0.55 || rainfall < 0.22) return 9;
+  if (elev > 0.62) return 5;
+  return 4;
 }
 
 function layerColor(data, i, layer, light, diagnostic) {
   const raw = data[layer]?.[i];
   const v = clamp01(raw ?? 0);
   let color;
-  if (layer === 'elevation') color = multiRamp(v, [[10,52,88],[44,126,150],[106,132,82],[150,128,98],[235,236,226]]);
+  if (layer === 'terrainClass' || layer === 'iceType') color = categoricalLayerColor(data[layer]?.[i] || 0);
+  else if (layer === 'elevation') color = multiRamp(v, [[10,52,88],[44,126,150],[106,132,82],[150,128,98],[235,236,226]]);
   else if (layer === 'water' || layer === 'waterFlow' || layer === 'waterAccess') color = multiRamp(v, [[46,34,30],[44,92,120],[66,170,210],[12,66,140]]);
   else if (layer === 'humidity' || layer === 'rainfall' || layer === 'runoff' || layer === 'cloudCover') color = multiRamp(v, [[82,58,42],[74,118,140],[74,180,210],[210,238,244]]);
   else if (layer === 'temperature') color = tempRamp(v);
@@ -1687,12 +1765,25 @@ function layerColor(data, i, layer, light, diagnostic) {
   else if (layer === 'greenhousePressure') color = multiRamp(v, [[50,74,94],[122,118,92],[220,122,56],[230,66,48]]);
   else if (layer === 'nutrientLevel') color = multiRamp(v, [[74,60,42],[120,112,64],[186,214,92],[220,236,126]]);
   else if (layer === 'solarInput') color = multiRamp(v, [[28,44,76],[104,120,112],[244,202,86],[255,230,120]]);
-  else if (layer === 'slopeProxy' || layer === 'coastProximity') color = multiRamp(v, [[35,35,35],[120,120,120],[235,235,235]]);
+  else if (layer === 'slopeProxy' || layer === 'coastProximity' || layer === 'landRelief' || layer === 'shallowWater' || layer === 'oceanDepth') color = multiRamp(v, [[35,35,35],[70,110,130],[235,235,235]]);
+  else if (layer === 'aridityProxy') color = multiRamp(v, [[46,84,92],[128,120,72],[220,150,74],[238,196,104]]);
+  else if (layer === 'wetnessProxy') color = multiRamp(v, [[72,48,40],[72,112,124],[66,170,180],[198,238,232]]);
+  else if (layer === 'vegetationPotential') color = multiRamp(v, [[72,60,44],[100,116,62],[68,154,90],[54,198,118]]);
   else color = ramp(v, [42,36,34], [216,224,160]);
   const multiplier = diagnostic ? 1 : (0.68 + light * 0.32);
   return rgb(color[0] * multiplier, color[1] * multiplier, color[2] * multiplier);
 }
 
+
+
+function categoricalLayerColor(code) {
+  const palette = [
+    [8, 42, 104], [18, 76, 144], [54, 158, 184], [212, 188, 116],
+    [112, 114, 78], [136, 124, 86], [184, 176, 156], [236, 242, 244],
+    [198, 226, 242], [218, 168, 82], [64, 150, 88]
+  ];
+  return palette[(Number(code) | 0) % palette.length];
+}
 
 function ramp(v, a, b) {
   return [lerp(a[0], b[0], v), lerp(a[1], b[1], v), lerp(a[2], b[2], v)];

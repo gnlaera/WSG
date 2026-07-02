@@ -10,7 +10,7 @@
    Compacted for Engine v2 0.2.1.
    ============================================================ */
 
-const BUILD_LABEL = 'WSG Engine v2 Build 0.2.3 - Coherent Planet Surface';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.2.4 - Hydrology Flow Legibility';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',
@@ -88,6 +88,8 @@ const LAYERS = Object.freeze([
   { id: 'civilisationSuitability', label: 'Civilisation Suitability' },
   { id: 'settlements', label: 'Settlements' },
   { id: 'waterFlow', label: 'Water Flow' },
+  { id: 'surfaceWater', label: 'Surface Water' },
+  { id: 'flowAccumulation', label: 'Flow Accumulation' },
   { id: 'cloudCover', label: 'Cloud Cover' },
   { id: 'lifeViability', label: 'Life Viability' },
   { id: 'dormantLife', label: 'Dormant Life' },
@@ -155,7 +157,8 @@ const PROBES = Object.freeze([
   { id: 'render_data_finite', label: 'Render-data finite/bounded check' },
   { id: 'visual_resolution', label: 'Scientific visual resolution check' },
   { id: 'high_resolution_spherical_renderer', label: 'High-resolution spherical renderer health check' },
-  { id: 'coherent_planet_surface', label: 'Coherent planet surface health check' }
+  { id: 'coherent_planet_surface', label: 'Coherent planet surface health check' },
+  { id: 'hydrology_flow_legibility', label: 'Hydrology flow legibility health check' }
 ]);
 
 function makeEnvelope(type, payload = {}) {
@@ -280,7 +283,7 @@ function estimateTypedPayloadBytes(payload) {
    Compacted for Engine v2 0.2.1.
    ============================================================ */
 
-const STATE_SCHEMA_VERSION = 'engine-v2-state-schema-0.1.0';
+const STATE_SCHEMA_VERSION = 'engine-v2-state-schema-0.2.4';
 
 const DEFAULT_CONFIG = Object.freeze({
   defaultMeshQuality: 'highres',
@@ -302,6 +305,16 @@ const SIM_ARRAY_FIELDS = Object.freeze([
   'rainfall',
   'runoff',
   'waterFlow',
+  'surfaceWater',
+  'flowMagnitude',
+  'flowAccumulation',
+  'upstreamContributingCount',
+  'flowDirection',
+  'downstreamCell',
+  'flowClass',
+  'sinkType',
+  'flowPathEndpoint',
+  'basinId',
   'habitability',
   'primitiveLife',
   'dormantLife',
@@ -360,6 +373,16 @@ const RENDER_ARRAY_FIELDS = Object.freeze([
   'rainfall',
   'runoff',
   'waterFlow',
+  'surfaceWater',
+  'flowMagnitude',
+  'flowAccumulation',
+  'upstreamContributingCount',
+  'flowDirection',
+  'downstreamCell',
+  'flowClass',
+  'sinkType',
+  'flowPathEndpoint',
+  'basinId',
   'habitability',
   'primitiveLife',
   'dormantLife',
@@ -450,8 +473,11 @@ function createSimulationState(mesh, options = {}) {
   };
 
   for (const field of SIM_ARRAY_FIELDS) {
-    if (field === 'biomeClass' || field === 'terrainClass' || field === 'iceType' || field === 'dirtyCells') {
+    if (field === 'biomeClass' || field === 'terrainClass' || field === 'iceType' || field === 'flowClass' || field === 'sinkType' || field === 'flowPathEndpoint' || field === 'dirtyCells') {
       state[field] = new Uint8Array(count);
+    } else if (field === 'downstreamCell' || field === 'basinId') {
+      state[field] = new Int32Array(count);
+      state[field].fill(-1);
     } else {
       state[field] = new Float32Array(count);
     }
@@ -488,7 +514,7 @@ function cloneState(state) {
 
   for (const field of SIM_ARRAY_FIELDS) {
     const source = state[field];
-    clone[field] = source instanceof Uint8Array ? new Uint8Array(source) : new Float32Array(source);
+    clone[field] = source instanceof Uint8Array ? new Uint8Array(source) : (source instanceof Int32Array ? new Int32Array(source) : new Float32Array(source));
   }
 
   return clone;
@@ -871,6 +897,61 @@ function weightedShare(values, weights, threshold) {
   return den > 0 ? num / den : 0;
 }
 
+function weightedCodeShare(values, weights, codes) {
+  const codeSet = new Set(codes.map((v) => v | 0));
+  let num = 0;
+  let den = 0;
+  for (let i = 0; i < values.length; i += 1) {
+    const w = weights[i];
+    den += w;
+    if (codeSet.has(values[i] | 0)) num += w;
+  }
+  return den > 0 ? num / den : 0;
+}
+
+function flowClassName(code) {
+  const labels = [
+    'dry or no meaningful flow',
+    'source / headwater',
+    'pass-through flow',
+    'converging flow',
+    'local sink / basin',
+    'lake or surface-water storage',
+    'coast / ocean outlet',
+    'frozen or ice-blocked',
+    'ocean / no land flow',
+    'uncertain flat or diffuse flow'
+  ];
+  return labels[Number(code) | 0] || 'unknown flow class';
+}
+
+function sinkTypeName(code) {
+  const labels = ['none', 'local sink', 'lake / storage', 'coast outlet', 'ocean', 'frozen blockage', 'uncertain / loop guard'];
+  return labels[Number(code) | 0] || 'unknown';
+}
+
+function endpointName(code) {
+  const labels = ['none', 'sink', 'lake / storage', 'coast outlet', 'ocean', 'frozen blockage', 'loop guard', 'max trace length'];
+  return labels[Number(code) | 0] || 'unknown endpoint';
+}
+
+function hydrologyInterpretation(state, id) {
+  const cls = state.flowClass?.[id] | 0;
+  const downstream = state.downstreamCell?.[id] ?? -1;
+  const mag = state.flowMagnitude?.[id] ?? 0;
+  const acc = state.flowAccumulation?.[id] ?? 0;
+  if (cls === 6) return 'Flow exits to nearby coast or ocean; watch upstream runoff and outlet concentration.';
+  if (cls === 4) return 'Local basin or sink; surface water can pool here unless uplift or overflow changes the route.';
+  if (cls === 5) return 'Lake or storage zone; subsidence may increase storage, uplift may drain or split it.';
+  if (cls === 7) return 'Frozen or ice-blocked; temperature and ice control whether liquid runoff resumes.';
+  if (cls === 8) return 'Ocean cell; land-flow routing is not applied here.';
+  if (cls === 1) return `Headwater/source with ${mag > 0.35 ? 'strong' : 'weak'} local runoff; trace downstream from here.`;
+  if (cls === 3) return `Confluence-like cell; upstream contribution is ${acc > 0.45 ? 'high' : 'moderate'} and drains toward ${downstream >= 0 ? `cell ${downstream}` : 'a local endpoint'}.`;
+  if (cls === 2) return `Pass-through flow draining toward ${downstream >= 0 ? `cell ${downstream}` : 'a local endpoint'}.`;
+  if (cls === 9) return 'Flat or diffuse flow; routing is weak and uncertain under the simplified model.';
+  return 'Dry or no meaningful land-flow signal.';
+}
+
 function computeSummary(state, mesh) {
   const weights = mesh.areaWeight;
   const temp = weightedMean(state.temperature, weights);
@@ -936,6 +1017,14 @@ function computeSummary(state, mesh) {
     cloudMean: weightedMean(state.cloudCover, weights),
     runoffMean: weightedMean(state.runoff, weights),
     waterFlowMean: weightedMean(state.waterFlow, weights),
+    surfaceWaterMean: weightedMean(state.surfaceWater, weights),
+    surfaceWaterShare: weightedShare(state.surfaceWater, weights, 0.18),
+    flowMagnitudeMean: weightedMean(state.flowMagnitude, weights),
+    flowAccumulationMean: weightedMean(state.flowAccumulation, weights),
+    activeFlowShare: weightedShare(state.flowMagnitude, weights, 0.08),
+    basinSinkShare: weightedCodeShare(state.flowClass, weights, [4, 5]),
+    coastOutletShare: weightedCodeShare(state.flowClass, weights, [6]),
+    frozenBlockedShare: weightedCodeShare(state.flowClass, weights, [7]),
     humidityMean: weightedMean(state.humidity, weights),
     rainfallMean: weightedMean(state.rainfall, weights),
     albedoMean: weightedMean(state.albedo, weights),
@@ -975,6 +1064,20 @@ function computeSelectedCellSummary(state, mesh, cellId = state.selectedCell) {
     rainfall: state.rainfall[id],
     runoff: state.runoff[id],
     waterFlow: state.waterFlow[id],
+    surfaceWater: state.surfaceWater[id],
+    flowClass: state.flowClass[id],
+    flowClassLabel: flowClassName(state.flowClass[id]),
+    downstreamCell: state.downstreamCell[id],
+    downstreamLabel: state.downstreamCell[id] >= 0 ? `cell ${state.downstreamCell[id]}` : sinkTypeName(state.sinkType[id]),
+    flowMagnitude: state.flowMagnitude[id],
+    flowAccumulation: state.flowAccumulation[id],
+    upstreamContributingCount: state.upstreamContributingCount[id],
+    flowDirection: state.flowDirection[id],
+    sinkType: state.sinkType[id],
+    sinkTypeLabel: sinkTypeName(state.sinkType[id]),
+    flowPathEndpoint: state.flowPathEndpoint[id],
+    flowPathEndpointLabel: endpointName(state.flowPathEndpoint[id]),
+    hydrologyInterpretation: hydrologyInterpretation(state, id),
     habitability: state.habitability[id],
     primitiveLife: state.primitiveLife[id],
     dormantLife: state.dormantLife[id],
@@ -1036,7 +1139,7 @@ function buildRenderData(state, mesh) {
 
   for (const field of RENDER_ARRAY_FIELDS) {
     const source = state[field];
-    payload[field] = source instanceof Uint8Array ? new Uint8Array(source) : new Float32Array(source);
+    payload[field] = source instanceof Uint8Array ? new Uint8Array(source) : (source instanceof Int32Array ? new Int32Array(source) : new Float32Array(source));
   }
 
   let bytes = 0;
@@ -1061,7 +1164,7 @@ function collectTransferables(payload) {
 
 function signatureState(state) {
   let h = 2166136261 >>> 0;
-  const fields = ['elevation', 'water', 'temperature', 'ice', 'habitability', 'lifeViability', 'primitiveLife', 'dormantLife', 'producerMats', 'settlements', 'populationIndex'];
+  const fields = ['elevation', 'water', 'temperature', 'ice', 'runoff', 'surfaceWater', 'flowMagnitude', 'flowAccumulation', 'habitability', 'lifeViability', 'primitiveLife', 'dormantLife', 'producerMats', 'settlements', 'populationIndex'];
   for (const field of fields) {
     const arr = state[field];
     const stride = Math.max(1, Math.floor(arr.length / 97));
@@ -1091,7 +1194,13 @@ function trendSampleFromSummary(summary) {
     lifeViability: summary.lifeViabilityMean,
     biodiversity: summary.biodiversityMean,
     settlement: summary.settlementMean,
-    collapseRisk: summary.collapseRiskMean
+    collapseRisk: summary.collapseRiskMean,
+    runoffMean: summary.runoffMean,
+    surfaceWaterShare: summary.surfaceWaterShare,
+    waterStressMean: summary.waterStressMean,
+    activeFlowShare: summary.activeFlowShare,
+    basinSinkShare: summary.basinSinkShare,
+    coastOutletShare: summary.coastOutletShare
   };
 }
 
@@ -1105,6 +1214,7 @@ function validateFiniteBounded(state) {
     }
     for (let i = 0; i < arr.length; i += 1) {
       const value = arr[i];
+      if ((field === 'downstreamCell' || field === 'basinId') && Number.isFinite(value) && value >= -1 && value <= state.cellCount) continue;
       if (!Number.isFinite(value)) {
         failures.push(`${field}[${i}] non-finite`);
         break;
@@ -1376,6 +1486,7 @@ function generateWorld(state, mesh, options = {}) {
   }
 
   recomputeDerivedDiagnostics(state, mesh);
+  computeHydrologyFlowDiagnostics(state, mesh);
   state.generationSignature = signatureState(state);
   state.renderDirty = true;
   state.trendDirty = true;
@@ -1446,50 +1557,196 @@ function computeHabitability(state, i) {
    ============================================================ */
 
 
-function stepWater(state, mesh) {
-  // This module is deliberately local in Build 0.1.0, but the state and API are
-  // prepared for later drainage direction, flow accumulation, basin filling,
-  // lake overflow, erosion, sediment, ocean heat transport, and climate-water feedback loops.
+
+const FLOW_CLASS = Object.freeze({
+  DRY: 0,
+  SOURCE: 1,
+  PASS_THROUGH: 2,
+  CONVERGING: 3,
+  SINK: 4,
+  STORAGE: 5,
+  OUTLET: 6,
+  FROZEN: 7,
+  OCEAN: 8,
+  DIFFUSE: 9
+});
+
+function computeHydrologicPotential(state, i) {
+  const oceanBonus = state.water[i] > 0.62 ? -0.34 : 0;
+  const storage = state.surfaceWater ? state.surfaceWater[i] * 0.08 : 0;
+  return state.elevation[i] + storage - state.water[i] * 0.10 - state.coastProximity[i] * 0.035 + oceanBonus;
+}
+
+function computeHydrologyFlowDiagnostics(state, mesh) {
+  const start = nowMs();
+  const count = state.cellCount;
+  if (!state.surfaceWater || !state.downstreamCell) return;
+
+  state.downstreamCell.fill(-1);
+  state.flowMagnitude.fill(0);
+  state.flowAccumulation.fill(0);
+  state.upstreamContributingCount.fill(0);
+  state.flowDirection.fill(0);
+  state.flowClass.fill(FLOW_CLASS.DRY);
+  state.sinkType.fill(0);
+  state.flowPathEndpoint.fill(0);
+  state.basinId.fill(-1);
   state.scratchFlow.fill(0);
 
+  // Precompute storage before neighbour routing so downstream choices are
+  // deterministic and do not depend on stale values from a previous world.
+  for (let i = 0; i < count; i += 1) {
+    const water = clamp01(state.water[i]);
+    const runoff = clamp01(state.runoff[i]);
+    const wet = clamp01(state.wetnessProxy[i] || state.rainfall[i] || state.humidity[i]);
+    const coast = clamp01(state.coastProximity[i]);
+    state.surfaceWater[i] = clamp01(water * 0.22 + runoff * 0.40 + wet * 0.16 + Math.max(0, 0.52 - state.elevation[i]) * 0.10 + (coast > 0.52 ? 0.035 : 0));
+  }
+
+  const order = new Int32Array(count);
+  for (let i = 0; i < count; i += 1) order[i] = i;
+
+  for (let i = 0; i < count; i += 1) {
+    const water = clamp01(state.water[i]);
+    const ice = clamp01(state.ice[i]);
+    const temp = clamp01(state.temperature[i]);
+    const runoff = clamp01(state.runoff[i]);
+    const wet = clamp01(state.wetnessProxy[i] || state.rainfall[i] || state.humidity[i]);
+    const slope = clamp01(state.slopeProxy[i]);
+    const coast = clamp01(state.coastProximity[i]);
+    const terrain = state.terrainClass[i] | 0;
+    const ocean = terrain === 0 || terrain === 1 || (water > 0.70 && coast < 0.55);
+    const frozen = ice > 0.64 && temp < 0.43 && water > 0.08;
+    const liquidFactor = frozen ? 0.12 : clamp01(1 - ice * 0.72 + Math.max(0, temp - 0.40) * 0.25);
+    state.surfaceWater[i] = clamp01(water * 0.22 + runoff * 0.40 + wet * 0.16 + Math.max(0, 0.52 - state.elevation[i]) * 0.10 + (coast > 0.52 ? 0.035 : 0));
+    const baseMagnitude = clamp01((runoff * 0.54 + state.surfaceWater[i] * 0.30 + state.rainfall[i] * 0.13 + slope * 0.08) * liquidFactor);
+    state.flowMagnitude[i] = ocean ? 0 : baseMagnitude;
+    if (ocean) {
+      state.flowClass[i] = FLOW_CLASS.OCEAN;
+      state.sinkType[i] = 4;
+      state.flowPathEndpoint[i] = 4;
+      continue;
+    }
+    if (frozen) {
+      state.flowClass[i] = FLOW_CLASS.FROZEN;
+      state.sinkType[i] = 5;
+      state.flowPathEndpoint[i] = 5;
+      continue;
+    }
+    if (baseMagnitude < 0.025 && state.surfaceWater[i] < 0.06) {
+      state.flowClass[i] = FLOW_CLASS.DRY;
+      continue;
+    }
+
+    const selfPotential = computeHydrologicPotential(state, i);
+    let best = -1;
+    let bestDrop = 0;
+    let outlet = -1;
+    const offset = i * 3;
+    for (let k = 0; k < 3; k += 1) {
+      const n = mesh.neighbours[offset + k];
+      if (n < 0) continue;
+      const nTerrain = state.terrainClass[n] | 0;
+      const nOcean = nTerrain === 0 || nTerrain === 1 || state.water[n] > 0.72;
+      if (nOcean && coast > 0.08) outlet = n;
+      const drop = selfPotential - computeHydrologicPotential(state, n);
+      if (drop > bestDrop) {
+        bestDrop = drop;
+        best = n;
+      }
+    }
+    if (outlet >= 0 && (coast > 0.16 || bestDrop < 0.030)) {
+      state.downstreamCell[i] = outlet;
+      state.flowClass[i] = FLOW_CLASS.OUTLET;
+      state.sinkType[i] = 3;
+      state.flowPathEndpoint[i] = 3;
+    } else if (best >= 0 && bestDrop > 0.006) {
+      state.downstreamCell[i] = best;
+      state.flowDirection[i] = clamp01(0.5 + Math.atan2(mesh.centerZ[best] - mesh.centerZ[i], mesh.centerX[best] - mesh.centerX[i]) / (Math.PI * 2));
+      state.flowClass[i] = baseMagnitude > 0.18 ? FLOW_CLASS.PASS_THROUGH : FLOW_CLASS.SOURCE;
+    } else if (state.surfaceWater[i] > 0.22 || water > 0.46) {
+      state.flowClass[i] = FLOW_CLASS.STORAGE;
+      state.sinkType[i] = 2;
+      state.flowPathEndpoint[i] = 2;
+      state.basinId[i] = i;
+    } else if (slope < 0.08) {
+      state.flowClass[i] = FLOW_CLASS.DIFFUSE;
+      state.sinkType[i] = 6;
+      state.flowPathEndpoint[i] = 6;
+    } else {
+      state.flowClass[i] = FLOW_CLASS.SINK;
+      state.sinkType[i] = 1;
+      state.flowPathEndpoint[i] = 1;
+      state.basinId[i] = i;
+    }
+  }
+
+  // Route accumulation in descending hydrologic potential order. Bounded and non-recursive.
+  Array.prototype.sort.call(order, (a, b) => computeHydrologicPotential(state, b) - computeHydrologicPotential(state, a));
+  for (let idx = 0; idx < count; idx += 1) {
+    const i = order[idx];
+    state.flowAccumulation[i] = clamp01(state.flowMagnitude[i]);
+  }
+  for (let idx = 0; idx < count; idx += 1) {
+    const i = order[idx];
+    const d = state.downstreamCell[i];
+    if (d >= 0 && d < count && d !== i) {
+      const pass = clamp01(state.flowAccumulation[i] * 0.62);
+      state.flowAccumulation[d] = clamp01(state.flowAccumulation[d] + pass);
+      state.upstreamContributingCount[d] = Math.min(65535, state.upstreamContributingCount[d] + 1 + state.upstreamContributingCount[i] * 0.45);
+    }
+  }
+
+  for (let i = 0; i < count; i += 1) {
+    const acc = clamp01(state.flowAccumulation[i]);
+    if (state.flowClass[i] === FLOW_CLASS.PASS_THROUGH && acc > 0.34) state.flowClass[i] = FLOW_CLASS.CONVERGING;
+    if (state.flowClass[i] === FLOW_CLASS.SOURCE && state.downstreamCell[i] >= 0 && state.upstreamContributingCount[i] > 1.5) state.flowClass[i] = FLOW_CLASS.CONVERGING;
+    state.waterFlow[i] = clamp01(state.flowMagnitude[i] * 0.62 + acc * 0.38);
+    state.waterAccess[i] = clamp01(state.water[i] * 0.46 + state.rainfall[i] * 0.22 + state.runoff[i] * 0.16 + state.surfaceWater[i] * 0.16 + state.waterFlow[i] * 0.12);
+  }
+
+  // Endpoint classification by following downstream links with a small cap.
+  const seen = new Uint8Array(count);
+  for (let i = 0; i < count; i += 1) {
+    seen.fill(0);
+    let cur = i;
+    let endpoint = 0;
+    for (let step = 0; step < 24; step += 1) {
+      if (cur < 0 || cur >= count) { endpoint = 0; break; }
+      const cls = state.flowClass[cur] | 0;
+      if (cls === FLOW_CLASS.SINK) { endpoint = 1; break; }
+      if (cls === FLOW_CLASS.STORAGE) { endpoint = 2; break; }
+      if (cls === FLOW_CLASS.OUTLET) { endpoint = 3; break; }
+      if (cls === FLOW_CLASS.OCEAN) { endpoint = 4; break; }
+      if (cls === FLOW_CLASS.FROZEN) { endpoint = 5; break; }
+      if (seen[cur]) { endpoint = 6; break; }
+      seen[cur] = 1;
+      const next = state.downstreamCell[cur];
+      if (next < 0) { endpoint = state.flowPathEndpoint[cur] || 0; break; }
+      cur = next;
+      if (step === 23) endpoint = 7;
+    }
+    if (endpoint) state.flowPathEndpoint[i] = endpoint;
+  }
+
+  state.diagnostics.lastHydrologyFlowMs = nowMs() - start;
+}
+
+function stepWater(state, mesh) {
+  // Lightweight hydrology proxies: humidity, rainfall, runoff and readable land-flow diagnostics.
+  // Flow routing is graph-based over the spherical triangle mesh, not rectangular adjacency.
   for (let i = 0; i < state.cellCount; i += 1) {
     const latAbs = Math.abs(mesh.latitude[i]) / 90;
     const evaporativeSupply = state.water[i] * clamp01(state.temperature[i] * 0.85 + 0.12) * (1 - state.ice[i] * 0.65);
-    const orographicLift = Math.max(0, state.elevation[i] - 0.50) * 0.16;
+    const orographicLift = Math.max(0, state.elevation[i] - 0.50) * 0.16 + state.slopeProxy[i] * 0.04;
     const cloudFeed = state.cloudCover[i] * 0.22;
     state.humidity[i] = clamp01(state.humidity[i] * 0.86 + evaporativeSupply * 0.10 + cloudFeed * 0.04 - latAbs * 0.025);
     state.rainfall[i] = clamp01(state.humidity[i] * (0.42 + (1 - latAbs) * 0.36) + orographicLift - state.ice[i] * 0.18);
-    state.runoff[i] = clamp01(Math.max(0, state.rainfall[i] - 0.18) * (0.30 + state.elevation[i] * 0.50) + state.ice[i] * Math.max(0, state.temperature[i] - 0.40) * 0.10);
+    state.runoff[i] = clamp01(Math.max(0, state.rainfall[i] - 0.18) * (0.28 + state.elevation[i] * 0.44 + state.slopeProxy[i] * 0.16) + state.ice[i] * Math.max(0, state.temperature[i] - 0.40) * 0.10);
   }
-
-  for (let i = 0; i < state.cellCount; i += 1) {
-    const offset = i * 3;
-    let best = -1;
-    let bestDrop = 0;
-    for (let k = 0; k < 3; k += 1) {
-      const n = mesh.neighbours[offset + k];
-      if (n >= 0) {
-        const drop = state.elevation[i] - state.elevation[n];
-        if (drop > bestDrop) {
-          bestDrop = drop;
-          best = n;
-        }
-      }
-    }
-    const localFlow = clamp01(state.runoff[i] + state.water[i] * 0.18);
-    if (best >= 0) {
-      state.scratchFlow[best] += localFlow * 0.28;
-      state.waterFlow[i] = clamp01(localFlow + bestDrop * 0.25);
-    } else {
-      state.waterFlow[i] = localFlow;
-    }
-  }
-
-  for (let i = 0; i < state.cellCount; i += 1) {
-    state.waterFlow[i] = clamp01(state.waterFlow[i] + state.scratchFlow[i] * 0.18);
-    state.waterAccess[i] = clamp01(state.water[i] * 0.50 + state.rainfall[i] * 0.25 + state.runoff[i] * 0.20 + state.waterFlow[i] * 0.18);
-    updateCellDerivedDiagnostics(state, mesh, i);
-  }
+  updateVisualProxyFields(state, mesh);
+  computeHydrologyFlowDiagnostics(state, mesh);
+  for (let i = 0; i < state.cellCount; i += 1) updateCellDerivedDiagnostics(state, mesh, i);
 }
 
 
@@ -1735,7 +1992,7 @@ function suggestedActionForCell(state, i) {
 }
 
 function localMeans(state, cells) {
-  const fields = ['water', 'ice', 'temperature', 'elevation', 'greenhousePressure', 'nutrientLevel', 'habitability', 'lifeViability', 'primitiveLife', 'dormantLife', 'biosphereHealth', 'heatStress', 'waterStress', 'settlements', 'collapseRisk'];
+  const fields = ['water', 'ice', 'temperature', 'elevation', 'greenhousePressure', 'nutrientLevel', 'habitability', 'lifeViability', 'primitiveLife', 'dormantLife', 'biosphereHealth', 'heatStress', 'waterStress', 'runoff', 'surfaceWater', 'waterFlow', 'flowMagnitude', 'flowAccumulation', 'settlements', 'collapseRisk'];
   const out = {};
   for (const field of fields) {
     let sum = 0;
@@ -1761,7 +2018,12 @@ function summariseToolDelta(before, after) {
     heatStress: 'heat stress',
     waterStress: 'water stress',
     settlements: 'settlements',
-    collapseRisk: 'collapse risk'
+    collapseRisk: 'collapse risk',
+    runoff: 'runoff',
+    surfaceWater: 'surface water',
+    waterFlow: 'water flow',
+    flowMagnitude: 'flow magnitude',
+    flowAccumulation: 'flow accumulation'
   };
   const changes = [];
   for (const [field, label] of Object.entries(labels)) {
@@ -1885,6 +2147,7 @@ function applyTool(state, mesh, request = {}) {
   }
 
   recomputeDerivedDiagnostics(state, mesh);
+  computeHydrologyFlowDiagnostics(state, mesh);
   const afterSig = localMutationSignature(state, cells);
   const mutated = beforeSig !== afterSig;
   const afterMeans = localMeans(state, cells);
@@ -1900,12 +2163,31 @@ function applyTool(state, mesh, request = {}) {
   }
 
   const deltaText = summariseToolDelta(beforeMeans, afterMeans);
+  const hydrologyNote = hydrologyToolNote(tool, beforeMeans, afterMeans, state, origin);
   state.lastAction = `${def.label} affected ${affected} cells${skipped ? ` and skipped ${skipped}` : ''}.`;
-  state.lastChange = `What changed: ${deltaText}. ${originValidation.suggestion}`;
+  state.lastChange = `What changed: ${deltaText}${hydrologyNote ? `; ${hydrologyNote}` : ''}. ${originValidation.suggestion}`;
   state.lastWatch = originValidation.watch;
   state.renderDirty = true;
   state.trendDirty = true;
   return { success: true, mutated: true, message: `${state.lastAction} ${state.lastChange}`, affected, skipped, before: beforeMeans, after: afterMeans, validation: originValidation };
+}
+
+function hydrologyToolNote(tool, before, after, state, origin) {
+  const runoffDelta = (after.runoff || 0) - (before.runoff || 0);
+  const surfaceDelta = (after.surfaceWater || 0) - (before.surfaceWater || 0);
+  const flowDelta = (after.flowMagnitude || 0) - (before.flowMagnitude || 0);
+  const accDelta = (after.flowAccumulation || 0) - (before.flowAccumulation || 0);
+  const cls = state.flowClass?.[origin] | 0;
+  const clsText = flowClassName(cls);
+  if (tool === 'raiseLand') return `hydrology: ${clsText}; uplift changed slope/runoff by ${runoffDelta >= 0 ? '+' : ''}${runoffDelta.toFixed(3)} and may redirect local flow`;
+  if (tool === 'lowerLand') return `hydrology: ${clsText}; subsidence changed surface-water storage by ${surfaceDelta >= 0 ? '+' : ''}${surfaceDelta.toFixed(3)}`;
+  if (tool === 'addWater') return `hydrology: delivered water is now classified as ${clsText}; watch pooling, runoff and downstream trace`;
+  if (tool === 'iceAsteroid') return `hydrology: ice can block or store liquid flow; current class ${clsText}`;
+  if (tool === 'warm') return `hydrology: warming may melt ice and renew runoff; flow magnitude delta ${flowDelta >= 0 ? '+' : ''}${flowDelta.toFixed(3)}`;
+  if (tool === 'cool') return `hydrology: cooling may freeze liquid flow; current class ${clsText}`;
+  if (tool === 'greenhouseVenting') return `hydrology: cooling changed runoff and ice risk; flow accumulation delta ${accDelta >= 0 ? '+' : ''}${accDelta.toFixed(3)}`;
+  if (tool === 'stabilise') return `hydrology: water stress, runoff extremes and basin instability were nudged; current class ${clsText}`;
+  return '';
 }
 
 function localFalloff(mesh, origin, cell, radius) {
@@ -1917,7 +2199,7 @@ function localFalloff(mesh, origin, cell, radius) {
 function localMutationSignature(state, cells) {
   let h = 2166136261 >>> 0;
   const fields = [
-    'elevation', 'water', 'ice', 'temperature', 'humidity', 'rainfall', 'runoff', 'waterFlow',
+    'elevation', 'water', 'ice', 'temperature', 'humidity', 'rainfall', 'runoff', 'waterFlow', 'surfaceWater', 'flowMagnitude', 'flowAccumulation',
     'habitability', 'lifeViability', 'survivalPressure', 'extinctionRisk', 'biosphereHealth',
     'greenhousePressure', 'nutrientLevel', 'heatStress', 'waterStress', 'albedo',
     'primitiveLife', 'dormantLife', 'biomass', 'producerMats', 'biodiversityIndex',
@@ -2190,6 +2472,27 @@ function executeProbe(probeId, ctx, startSig) {
     return { status: ok ? 'pass' : 'warn', detail: ok ? `Coherent surface fields present; ${classes.size} semantic terrain classes detected; coast, land, water, relief, wetness, aridity and ice proxies available.` : `Surface semantics are present but broad class diversity may be low. Missing: ${missing.join(', ') || 'none'}; classes ${classes.size}; water samples ${waterish}; land samples ${landish}; coast samples ${coastish}.` };
   }
 
+  if (probeId === 'hydrology_flow_legibility') {
+    generateWorld(ctx.state, ctx.mesh, { seed: 'hydrology-flow-probe', template: 'earthlike', archetype: 'rugged' });
+    computeHydrologyFlowDiagnostics(ctx.state, ctx.mesh);
+    const render = buildRenderData(ctx.state, ctx.mesh);
+    const required = ['surfaceWater', 'flowClass', 'downstreamCell', 'flowMagnitude', 'flowAccumulation', 'upstreamContributingCount', 'sinkType', 'flowPathEndpoint'];
+    const missing = required.filter((field) => !render[field] || render[field].length !== ctx.mesh.count);
+    const classes = new Set(Array.from(ctx.state.flowClass));
+    let routed = 0;
+    let sinks = 0;
+    let outlets = 0;
+    let frozen = 0;
+    for (let i = 0; i < ctx.mesh.count; i += 1) {
+      if (ctx.state.downstreamCell[i] >= 0) routed += 1;
+      if (ctx.state.flowClass[i] === FLOW_CLASS.SINK || ctx.state.flowClass[i] === FLOW_CLASS.STORAGE) sinks += 1;
+      if (ctx.state.flowClass[i] === FLOW_CLASS.OUTLET) outlets += 1;
+      if (ctx.state.flowClass[i] === FLOW_CLASS.FROZEN) frozen += 1;
+    }
+    const ok = missing.length === 0 && classes.size >= 5 && routed > 0 && sinks > 0 && outlets > 0;
+    return { status: ok ? 'pass' : 'warn', detail: ok ? `Hydrology flow diagnostics present: ${classes.size} flow classes, ${routed} routed cells, ${sinks} sinks/storage cells, ${outlets} coast outlets, ${frozen} frozen/blocked cells.` : `Hydrology flow diagnostics incomplete or low diversity. Missing: ${missing.join(', ') || 'none'}; classes ${classes.size}; routed ${routed}; sinks ${sinks}; outlets ${outlets}.` };
+  }
+
   if (probeId === 'render_data_finite') {
     const render = buildRenderData(ctx.state, ctx.mesh);
     const failures = [];
@@ -2343,7 +2646,11 @@ function sendDiagnostics() {
     neighbourLinks: mesh ? mesh.neighbourLinkCount : 0,
     bytesTransferredLastRenderUpdate: state ? state.diagnostics.lastRenderBytes : 0,
     workerMessageCount: state ? state.diagnostics.messageCount : 0,
-    lastWorkerError: state ? state.diagnostics.lastError : ''
+    lastWorkerError: state ? state.diagnostics.lastError : '',
+    lastHydrologyFlowMs: state ? state.diagnostics.lastHydrologyFlowMs || 0 : 0,
+    activeFlowShare: state ? computeSummary(state, mesh).activeFlowShare : 0,
+    basinSinkShare: state ? computeSummary(state, mesh).basinSinkShare : 0,
+    coastOutletShare: state ? computeSummary(state, mesh).coastOutletShare : 0
   });
 }
 

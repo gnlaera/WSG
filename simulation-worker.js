@@ -10,7 +10,8 @@
    Compacted for Engine v2 0.2.1.
    ============================================================ */
 
-const BUILD_LABEL = 'WSG Engine v2 Build 0.2.5 - Cryosphere Consistency Hotfix';
+const BUILD_VERSION = '0.2.5.1';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.2.5.1 - Worker Cache-Bust Hotfix';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',
@@ -159,7 +160,8 @@ const PROBES = Object.freeze([
   { id: 'high_resolution_spherical_renderer', label: 'High-resolution spherical renderer health check' },
   { id: 'coherent_planet_surface', label: 'Coherent planet surface health check' },
   { id: 'hydrology_flow_legibility', label: 'Hydrology flow legibility health check' },
-  { id: 'cryosphere_consistency', label: 'Cryosphere consistency health check' }
+  { id: 'cryosphere_consistency', label: 'Cryosphere consistency health check' },
+  { id: 'cryosphere_smoke', label: 'Cryosphere smoke regression check' }
 ]);
 
 function makeEnvelope(type, payload = {}) {
@@ -290,7 +292,7 @@ function estimateTypedPayloadBytes(payload) {
    Compacted for Engine v2 0.2.1.
    ============================================================ */
 
-const STATE_SCHEMA_VERSION = 'engine-v2-state-schema-0.2.5';
+const STATE_SCHEMA_VERSION = 'engine-v2-state-schema-0.2.5.1';
 
 const DEFAULT_CONFIG = Object.freeze({
   defaultMeshQuality: 'highres',
@@ -1021,6 +1023,89 @@ function cryosphereStatusForCell(state, mesh, i) {
   if (terrain === TERRAIN_CLASS_LAND_ICE && iceType !== ICE_TYPE_LAND) return 'inconsistent - stale land-ice terrain';
   if (typeof FLOW_CLASS !== 'undefined' && state.flowClass && state.flowClass[i] === FLOW_CLASS.FROZEN && (temp > MELT_INDEX || iceType === ICE_TYPE_NONE)) return 'inconsistent - warm frozen flow';
   return 'consistent';
+}
+
+function findCryosphereSmokeCell(state, preferredId = 11243) {
+  const preferred = Math.max(0, Math.min(state.cellCount - 1, preferredId | 0));
+  if (state.cellCount <= 0) return -1;
+  const isWarmWater = (i) => state.water[i] > 0.50 && toCelsius(state.temperature[i]) >= 20;
+  if (isWarmWater(preferred)) return preferred;
+  let best = -1;
+  let bestDistance = Infinity;
+  for (let i = 0; i < state.cellCount; i += 1) {
+    if (!isWarmWater(i)) continue;
+    const distance = Math.abs(i - preferred);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = i;
+    }
+  }
+  return best >= 0 ? best : preferred;
+}
+
+function cryosphereSmokeSnapshot(state, mesh) {
+  if (!state || !mesh || !state.diagnostics) {
+    return {
+      status: 'unchecked',
+      cellId: -1,
+      selectedCellCryosphereStatus: 'no cell selected'
+    };
+  }
+  const check = checkCryosphereConsistency(state, mesh);
+  const cellId = findCryosphereSmokeCell(state, 11243);
+  const selectedId = state.selectedCell | 0;
+  const selectedCellCryosphereStatus = selectedId >= 0 && selectedId < state.cellCount
+    ? cryosphereStatusForCell(state, mesh, selectedId)
+    : 'no cell selected';
+  if (cellId < 0 || cellId >= state.cellCount) {
+    return {
+      status: check.anomalyCount === 0 ? 'pass' : 'fail',
+      cellId: -1,
+      selectedCellCryosphereStatus,
+      warmSeaIceAnomalyCount: check.warmSeaIceAnomalyCount,
+      warmLandIceAnomalyCount: check.warmLandIceAnomalyCount,
+      warmFrozenFlowAnomalyCount: check.warmFrozenFlowAnomalyCount
+    };
+  }
+  const temperatureC = toCelsius(state.temperature[cellId]);
+  const water = state.water[cellId];
+  const iceTypeCode = state.iceType ? state.iceType[cellId] | 0 : classifyIceType(state, mesh, cellId);
+  const terrainCode = state.terrainClass ? state.terrainClass[cellId] | 0 : 0;
+  const flowCode = state.flowClass ? state.flowClass[cellId] | 0 : 0;
+  const cellStatus = cryosphereStatusForCell(state, mesh, cellId);
+  const warmWater = water > 0.50 && temperatureC >= 20;
+  const warmWaterClean = !warmWater || (
+    iceTypeCode === ICE_TYPE_NONE
+    && terrainCode !== TERRAIN_CLASS_SEA_ICE
+    && flowCode !== FLOW_CLASS.FROZEN
+    && cellStatus === 'consistent'
+  );
+  const pass = check.warmSeaIceAnomalyCount === 0
+    && check.warmLandIceAnomalyCount === 0
+    && check.warmFrozenFlowAnomalyCount === 0
+    && warmWaterClean
+    && selectedCellCryosphereStatus !== 'inconsistent - warm sea ice'
+    && selectedCellCryosphereStatus !== 'inconsistent - warm land snow / ice'
+    && selectedCellCryosphereStatus !== 'inconsistent - warm frozen flow';
+  return {
+    status: pass ? 'pass' : 'fail',
+    cellId,
+    preferredCellId: 11243,
+    usedNearestEquivalent: cellId !== 11243,
+    temperatureC,
+    water,
+    ice: state.ice[cellId],
+    iceTypeCode,
+    iceType: iceTypeCode === ICE_TYPE_SEA ? 'sea ice' : (iceTypeCode === ICE_TYPE_LAND ? 'land snow / ice' : 'none'),
+    terrainClass: terrainClassName(terrainCode),
+    flowClass: flowClassName(flowCode),
+    cellCryosphereStatus: cellStatus,
+    selectedCellCryosphereStatus,
+    warmSeaIceAnomalyCount: check.warmSeaIceAnomalyCount,
+    warmLandIceAnomalyCount: check.warmLandIceAnomalyCount,
+    warmFrozenFlowAnomalyCount: check.warmFrozenFlowAnomalyCount,
+    anomalyCount: check.anomalyCount
+  };
 }
 
 function recomputeDerivedDiagnostics(state, mesh) {
@@ -2723,6 +2808,25 @@ function executeProbe(probeId, ctx, startSig) {
     };
   }
 
+  if (probeId === 'cryosphere_smoke') {
+    generateWorld(ctx.state, ctx.mesh, { seed: DEFAULT_CONFIG.initialSeed, template: 'procedural_lifeless', archetype: 'balanced' });
+    computeHydrologyFlowDiagnostics(ctx.state, ctx.mesh);
+    const smoke = cryosphereSmokeSnapshot(ctx.state, ctx.mesh);
+    const ok = smoke.status === 'pass'
+      && smoke.warmSeaIceAnomalyCount === 0
+      && smoke.warmLandIceAnomalyCount === 0
+      && smoke.warmFrozenFlowAnomalyCount === 0;
+    const cellPart = smoke.cellId >= 0
+      ? `cell ${smoke.cellId}${smoke.usedNearestEquivalent ? ' nearest equivalent to 11243' : ''}, ${smoke.temperatureC.toFixed(1)} C, water ${smoke.water.toFixed(3)}, ice type ${smoke.iceType}, terrain ${smoke.terrainClass}, flow ${smoke.flowClass}`
+      : 'no regression cell found';
+    return {
+      status: ok ? 'pass' : 'fail',
+      detail: ok
+        ? `Cryosphere smoke passed: ${cellPart}; warm sea-ice, warm land-ice, and warm frozen-flow anomalies are zero.`
+        : `Cryosphere smoke failed: ${cellPart}; sea ${smoke.warmSeaIceAnomalyCount}, land ${smoke.warmLandIceAnomalyCount}, frozen-flow ${smoke.warmFrozenFlowAnomalyCount}, status ${smoke.status}.`
+    };
+  }
+
   if (probeId === 'render_data_finite') {
     const render = buildRenderData(ctx.state, ctx.mesh);
     const failures = [];
@@ -2859,7 +2963,11 @@ function sendRenderData() {
 }
 
 function sendDiagnostics() {
+  const smoke = state ? cryosphereSmokeSnapshot(state, mesh) : null;
   post(EVENTS.DIAGNOSTIC_SUMMARY, {
+    workerBuildVersion: BUILD_VERSION,
+    workerBuildLabel: BUILD_LABEL,
+    expectedWorkerUrlVersion: BUILD_VERSION,
     workerStatus: state ? state.diagnostics.workerStatus : 'not initialised',
     lastWorkerTickMs: state ? state.diagnostics.lastTickMs : 0,
     lastGenerationMs: state ? state.diagnostics.lastGenerationMs : 0,
@@ -2886,6 +2994,18 @@ function sendDiagnostics() {
     warmSeaIceAnomalyCount: state ? state.diagnostics.warmSeaIceAnomalyCount || 0 : 0,
     warmLandIceAnomalyCount: state ? state.diagnostics.warmLandIceAnomalyCount || 0 : 0,
     warmFrozenFlowAnomalyCount: state ? state.diagnostics.warmFrozenFlowAnomalyCount || 0 : 0,
+    cryosphereSmokeStatus: smoke ? smoke.status : 'unchecked',
+    cryosphereSmokeCellId: smoke ? smoke.cellId : -1,
+    cryosphereSmokePreferredCellId: smoke ? smoke.preferredCellId : 11243,
+    cryosphereSmokeUsedNearestEquivalent: smoke ? !!smoke.usedNearestEquivalent : false,
+    cryosphereSmokeTemperatureC: smoke ? smoke.temperatureC || 0 : 0,
+    cryosphereSmokeWater: smoke ? smoke.water || 0 : 0,
+    cryosphereSmokeIce: smoke ? smoke.ice || 0 : 0,
+    cryosphereSmokeIceType: smoke ? smoke.iceType || 'n/a' : 'n/a',
+    cryosphereSmokeTerrainClass: smoke ? smoke.terrainClass || 'n/a' : 'n/a',
+    cryosphereSmokeFlowClass: smoke ? smoke.flowClass || 'n/a' : 'n/a',
+    cryosphereSmokeCellCryosphereStatus: smoke ? smoke.cellCryosphereStatus || 'n/a' : 'n/a',
+    selectedCellCryosphereStatus: smoke ? smoke.selectedCellCryosphereStatus || 'no cell selected' : 'no cell selected',
     seaIceShare: state ? state.diagnostics.seaIceShare || 0 : 0,
     landIceShare: state ? state.diagnostics.landIceShare || 0 : 0,
     warmRegionIceShare: state ? state.diagnostics.warmRegionIceShare || 0 : 0,
@@ -2908,7 +3028,7 @@ function fullUpdate(options = {}) {
 function handleCommand(type, payload = {}) {
   if (type === COMMANDS.INIT) {
     generateWithOptions(payload || lastGenerateOptions);
-    post(EVENTS.READY, { status: 'READY', meshType: mesh.type, cellCount: mesh.count, meshQuality: mesh.qualityId, meshQualityLabel: mesh.qualityLabel, meshFrequency: mesh.frequency });
+    post(EVENTS.READY, { status: 'READY', buildVersion: BUILD_VERSION, buildLabel: BUILD_LABEL, workerBuildVersion: BUILD_VERSION, workerBuildLabel: BUILD_LABEL, meshType: mesh.type, cellCount: mesh.count, meshQuality: mesh.qualityId, meshQualityLabel: mesh.qualityLabel, meshFrequency: mesh.frequency });
     fullUpdate({ render: true });
     return;
   }

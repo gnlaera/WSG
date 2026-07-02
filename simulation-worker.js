@@ -10,7 +10,7 @@
    Compacted for Engine v2 0.2.1.
    ============================================================ */
 
-const BUILD_LABEL = 'WSG Engine v2 Build 0.2.4 - Hydrology Flow Legibility';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.2.5 - Cryosphere Consistency Hotfix';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',
@@ -158,7 +158,8 @@ const PROBES = Object.freeze([
   { id: 'visual_resolution', label: 'Scientific visual resolution check' },
   { id: 'high_resolution_spherical_renderer', label: 'High-resolution spherical renderer health check' },
   { id: 'coherent_planet_surface', label: 'Coherent planet surface health check' },
-  { id: 'hydrology_flow_legibility', label: 'Hydrology flow legibility health check' }
+  { id: 'hydrology_flow_legibility', label: 'Hydrology flow legibility health check' },
+  { id: 'cryosphere_consistency', label: 'Cryosphere consistency health check' }
 ]);
 
 function makeEnvelope(type, payload = {}) {
@@ -185,8 +186,14 @@ function lerp(a, b, t) {
 }
 
 function smoothstep(edge0, edge1, x) {
-  const t = clamp01((x - edge0) / Math.max(1e-9, edge1 - edge0));
+  const span = edge1 - edge0;
+  if (Math.abs(span) < 1e-9) return x >= edge1 ? 1 : 0;
+  const t = clamp01((x - edge0) / span);
   return t * t * (3 - 2 * t);
+}
+
+function inverseSmoothstep(low, high, x) {
+  return 1 - smoothstep(low, high, x);
 }
 
 function weightedAverage(values, weights) {
@@ -283,7 +290,7 @@ function estimateTypedPayloadBytes(payload) {
    Compacted for Engine v2 0.2.1.
    ============================================================ */
 
-const STATE_SCHEMA_VERSION = 'engine-v2-state-schema-0.2.4';
+const STATE_SCHEMA_VERSION = 'engine-v2-state-schema-0.2.5';
 
 const DEFAULT_CONFIG = Object.freeze({
   defaultMeshQuality: 'highres',
@@ -295,6 +302,19 @@ const DEFAULT_CONFIG = Object.freeze({
   defaultSpeed: 1,
   defaultToolRadius: 2
 });
+
+const FREEZING_INDEX = 0.40;
+const SEA_ICE_FREEZE_INDEX = 0.375;
+const MELT_INDEX = 0.415;
+const WARM_ICE_FORBIDDEN_INDEX = 0.43;
+const ICE_VISIBILITY_THRESHOLD = 0.08;
+const SEA_ICE_MIN_INDEX = 0.10;
+const LAND_ICE_MIN_INDEX = 0.12;
+const ICE_TYPE_NONE = 0;
+const ICE_TYPE_SEA = 1;
+const ICE_TYPE_LAND = 2;
+const TERRAIN_CLASS_LAND_ICE = 7;
+const TERRAIN_CLASS_SEA_ICE = 8;
 
 const SIM_ARRAY_FIELDS = Object.freeze([
   'elevation',
@@ -462,6 +482,18 @@ function createSimulationState(mesh, options = {}) {
       lastProbeMs: 0,
       lastRenderBuildMs: 0,
       lastRenderBytes: 0,
+      lastCryosphereReconciliationMs: 0,
+      lastCryosphereCorrections: 0,
+      cryosphereStatus: 'unchecked',
+      warmIceAnomalyCount: 0,
+      warmSeaIceAnomalyCount: 0,
+      warmLandIceAnomalyCount: 0,
+      warmFrozenFlowAnomalyCount: 0,
+      seaIceShare: 0,
+      landIceShare: 0,
+      warmRegionIceShare: 0,
+      coldRegionIceShare: 0,
+      meanIceTemperatureC: 0,
       messageCount: 0,
       lastError: '',
       neighbourLinks: mesh.neighbourLinkCount,
@@ -829,7 +861,7 @@ function updateVisualProxyFields(state, mesh) {
     state.aridityProxy[i] = aridity;
     state.wetnessProxy[i] = wetness;
     state.vegetationPotential[i] = vegetation;
-    state.iceType[i] = ice > 0.24 ? (water > 0.50 ? 1 : 2) : 0;
+    state.iceType[i] = classifyIceType(state, mesh, i);
     state.terrainClass[i] = deriveTerrainClass(state, i);
     state.biomeClass[i] = state.terrainClass[i];
   }
@@ -858,11 +890,146 @@ function updateCellDerivedDiagnostics(state, mesh, i) {
   state.biosphereHealth[i] = clamp01(living * 0.36 + state.ecosystemResilience[i] * 0.28 + viability * 0.22 + (1 - survival) * 0.14);
 }
 
+function isWaterLikeCell(state, i) {
+  const water = clamp01(state.water[i]);
+  const shallow = clamp01(state.shallowWater?.[i] ?? 0);
+  return water > 0.50 || shallow > 0.58;
+}
+
+function classifyIceType(state, mesh, i) {
+  const ice = clamp01(state.ice[i]);
+  const temp = clamp01(state.temperature[i]);
+  if (ice < ICE_VISIBILITY_THRESHOLD) return ICE_TYPE_NONE;
+  if (temp > WARM_ICE_FORBIDDEN_INDEX) return ICE_TYPE_NONE;
+  const waterLike = isWaterLikeCell(state, i);
+  const latAbs = mesh && mesh.latitude ? Math.abs(mesh.latitude[i]) / 90 : 0;
+  const highColdLand = !waterLike && state.elevation[i] > 0.72 && temp <= MELT_INDEX && latAbs > 0.35;
+  if (waterLike) {
+    return temp <= FREEZING_INDEX && ice >= SEA_ICE_MIN_INDEX ? ICE_TYPE_SEA : ICE_TYPE_NONE;
+  }
+  if ((temp <= FREEZING_INDEX || highColdLand) && ice >= LAND_ICE_MIN_INDEX) return ICE_TYPE_LAND;
+  return ICE_TYPE_NONE;
+}
+
+function reconcileCryosphereState(state, mesh, reason = 'state') {
+  const start = nowMs();
+  let corrections = 0;
+  for (let i = 0; i < state.cellCount; i += 1) {
+    const temp = clamp01(state.temperature[i]);
+    const beforeIce = clamp01(state.ice[i]);
+    let ice = beforeIce;
+    if (temp > WARM_ICE_FORBIDDEN_INDEX) {
+      ice = 0;
+    } else if (temp > MELT_INDEX) {
+      ice = Math.min(ice * 0.20, ICE_VISIBILITY_THRESHOLD * 0.75);
+    } else if (temp > FREEZING_INDEX && isWaterLikeCell(state, i)) {
+      ice = Math.min(ice, ICE_VISIBILITY_THRESHOLD * 0.75);
+    }
+    state.ice[i] = clamp01(ice);
+    const oldType = state.iceType ? state.iceType[i] : 0;
+    const newType = classifyIceType(state, mesh, i);
+    if (state.iceType) state.iceType[i] = newType;
+    if (Math.abs(beforeIce - state.ice[i]) > 1e-6 || oldType !== newType) corrections += 1;
+  }
+  if (state.diagnostics) {
+    state.diagnostics.lastCryosphereReconciliationMs = nowMs() - start;
+    state.diagnostics.lastCryosphereCorrections = corrections;
+    state.diagnostics.lastCryosphereReconciliationReason = reason;
+  }
+  return corrections;
+}
+
+function checkCryosphereConsistency(state, mesh) {
+  const weights = mesh.areaWeight || new Float32Array(state.cellCount).fill(1);
+  let warmIceAnomalyCount = 0;
+  let warmSeaIceAnomalyCount = 0;
+  let warmLandIceAnomalyCount = 0;
+  let terrainSeaMismatchCount = 0;
+  let terrainLandMismatchCount = 0;
+  let warmFrozenFlowAnomalyCount = 0;
+  let seaIceWeight = 0;
+  let landIceWeight = 0;
+  let warmIceWeight = 0;
+  let coldIceWeight = 0;
+  let iceTempWeighted = 0;
+  let iceWeight = 0;
+  let totalWeight = 0;
+  for (let i = 0; i < state.cellCount; i += 1) {
+    const w = Number.isFinite(weights[i]) && weights[i] > 0 ? weights[i] : 1;
+    totalWeight += w;
+    const temp = clamp01(state.temperature[i]);
+    const ice = clamp01(state.ice[i]);
+    const iceType = state.iceType ? state.iceType[i] | 0 : classifyIceType(state, mesh, i);
+    const terrain = state.terrainClass ? state.terrainClass[i] | 0 : 0;
+    if (ice > ICE_VISIBILITY_THRESHOLD && temp > WARM_ICE_FORBIDDEN_INDEX) warmIceAnomalyCount += 1;
+    if (iceType === ICE_TYPE_SEA && (temp > FREEZING_INDEX || !isWaterLikeCell(state, i))) warmSeaIceAnomalyCount += 1;
+    if (iceType === ICE_TYPE_LAND && (temp > MELT_INDEX || isWaterLikeCell(state, i))) warmLandIceAnomalyCount += 1;
+    if (terrain === TERRAIN_CLASS_SEA_ICE && iceType !== ICE_TYPE_SEA) terrainSeaMismatchCount += 1;
+    if (terrain === TERRAIN_CLASS_LAND_ICE && iceType !== ICE_TYPE_LAND) terrainLandMismatchCount += 1;
+    if (typeof FLOW_CLASS !== 'undefined' && state.flowClass && state.flowClass[i] === FLOW_CLASS.FROZEN && (temp > MELT_INDEX || iceType === ICE_TYPE_NONE)) warmFrozenFlowAnomalyCount += 1;
+    if (iceType === ICE_TYPE_SEA) seaIceWeight += w;
+    if (iceType === ICE_TYPE_LAND) landIceWeight += w;
+    if (ice > ICE_VISIBILITY_THRESHOLD) {
+      iceWeight += w;
+      iceTempWeighted += toCelsius(temp) * w;
+      if (temp > WARM_ICE_FORBIDDEN_INDEX) warmIceWeight += w;
+      if (temp <= FREEZING_INDEX) coldIceWeight += w;
+    }
+  }
+  const anomalyCount = warmIceAnomalyCount + warmSeaIceAnomalyCount + warmLandIceAnomalyCount + terrainSeaMismatchCount + terrainLandMismatchCount + warmFrozenFlowAnomalyCount;
+  return {
+    status: anomalyCount === 0 ? 'consistent' : 'inconsistent',
+    anomalyCount,
+    warmIceAnomalyCount,
+    warmSeaIceAnomalyCount,
+    warmLandIceAnomalyCount,
+    terrainSeaMismatchCount,
+    terrainLandMismatchCount,
+    warmFrozenFlowAnomalyCount,
+    seaIceShare: totalWeight > 0 ? seaIceWeight / totalWeight : 0,
+    landIceShare: totalWeight > 0 ? landIceWeight / totalWeight : 0,
+    warmRegionIceShare: totalWeight > 0 ? warmIceWeight / totalWeight : 0,
+    coldRegionIceShare: totalWeight > 0 ? coldIceWeight / totalWeight : 0,
+    meanIceTemperatureC: iceWeight > 0 ? iceTempWeighted / iceWeight : 0
+  };
+}
+
+function updateCryosphereDiagnostics(state, mesh, check = null) {
+  const result = check || checkCryosphereConsistency(state, mesh);
+  if (!state.diagnostics) return result;
+  state.diagnostics.cryosphereStatus = result.status;
+  state.diagnostics.warmIceAnomalyCount = result.warmIceAnomalyCount;
+  state.diagnostics.warmSeaIceAnomalyCount = result.warmSeaIceAnomalyCount;
+  state.diagnostics.warmLandIceAnomalyCount = result.warmLandIceAnomalyCount;
+  state.diagnostics.warmFrozenFlowAnomalyCount = result.warmFrozenFlowAnomalyCount;
+  state.diagnostics.cryosphereAnomalyCount = result.anomalyCount;
+  state.diagnostics.seaIceShare = result.seaIceShare;
+  state.diagnostics.landIceShare = result.landIceShare;
+  state.diagnostics.warmRegionIceShare = result.warmRegionIceShare;
+  state.diagnostics.coldRegionIceShare = result.coldRegionIceShare;
+  state.diagnostics.meanIceTemperatureC = result.meanIceTemperatureC;
+  return result;
+}
+
+function cryosphereStatusForCell(state, mesh, i) {
+  const temp = clamp01(state.temperature[i]);
+  const iceType = state.iceType ? state.iceType[i] | 0 : classifyIceType(state, mesh, i);
+  const terrain = state.terrainClass ? state.terrainClass[i] | 0 : 0;
+  if (iceType === ICE_TYPE_SEA && temp > FREEZING_INDEX) return 'inconsistent - warm sea ice';
+  if (iceType === ICE_TYPE_LAND && temp > MELT_INDEX) return 'inconsistent - warm land snow / ice';
+  if (terrain === TERRAIN_CLASS_SEA_ICE && iceType !== ICE_TYPE_SEA) return 'inconsistent - stale sea-ice terrain';
+  if (terrain === TERRAIN_CLASS_LAND_ICE && iceType !== ICE_TYPE_LAND) return 'inconsistent - stale land-ice terrain';
+  if (typeof FLOW_CLASS !== 'undefined' && state.flowClass && state.flowClass[i] === FLOW_CLASS.FROZEN && (temp > MELT_INDEX || iceType === ICE_TYPE_NONE)) return 'inconsistent - warm frozen flow';
+  return 'consistent';
+}
+
 function recomputeDerivedDiagnostics(state, mesh) {
+  reconcileCryosphereState(state, mesh, 'derived');
   for (let i = 0; i < state.cellCount; i += 1) {
     updateCellDerivedDiagnostics(state, mesh, i);
   }
   updateVisualProxyFields(state, mesh);
+  updateCryosphereDiagnostics(state, mesh, checkCryosphereConsistency(state, mesh));
 }
 
 /* ============================================================
@@ -1028,6 +1195,16 @@ function computeSummary(state, mesh) {
     humidityMean: weightedMean(state.humidity, weights),
     rainfallMean: weightedMean(state.rainfall, weights),
     albedoMean: weightedMean(state.albedo, weights),
+    cryosphereStatus: state.diagnostics.cryosphereStatus || 'unchecked',
+    warmIceAnomalyCount: state.diagnostics.warmIceAnomalyCount || 0,
+    warmSeaIceAnomalyCount: state.diagnostics.warmSeaIceAnomalyCount || 0,
+    warmLandIceAnomalyCount: state.diagnostics.warmLandIceAnomalyCount || 0,
+    warmFrozenFlowAnomalyCount: state.diagnostics.warmFrozenFlowAnomalyCount || 0,
+    seaIceShare: state.diagnostics.seaIceShare || 0,
+    landIceShare: state.diagnostics.landIceShare || 0,
+    warmRegionIceShare: state.diagnostics.warmRegionIceShare || 0,
+    coldRegionIceShare: state.diagnostics.coldRegionIceShare || 0,
+    meanIceTemperatureC: state.diagnostics.meanIceTemperatureC || 0,
     warnings,
     renderDirty: state.renderDirty,
     trendDirty: state.trendDirty,
@@ -1056,6 +1233,9 @@ function computeSelectedCellSummary(state, mesh, cellId = state.selectedCell) {
     wetnessProxy: state.wetnessProxy[id],
     vegetationPotential: state.vegetationPotential[id],
     iceType: state.iceType[id],
+    iceTypeLabel: state.iceType[id] === ICE_TYPE_SEA ? 'sea ice' : (state.iceType[id] === ICE_TYPE_LAND ? 'land snow / ice' : 'none'),
+    cryosphereStatus: cryosphereStatusForCell(state, mesh, id),
+    frozenBlockedStatus: state.flowClass[id] === FLOW_CLASS.FROZEN ? 'frozen / ice-blocked' : 'not frozen-blocked',
     water: state.water[id],
     ice: state.ice[id],
     temperature: state.temperature[id],
@@ -1234,6 +1414,8 @@ function collectWarnings(state, mesh, metrics) {
   if (metrics.waterShare > 0.96) warnings.push('Very high water coverage.');
   if (metrics.temp < 0.18 || metrics.temp > 0.88) warnings.push('Extreme average temperature.');
   if (metrics.life < 0.001 && state.template === 'earthlike') warnings.push('Earthlike template has unexpectedly low primitive life.');
+  const cryo = checkCryosphereConsistency(state, mesh);
+  if (cryo.anomalyCount > 0) warnings.push(`Cryosphere consistency warning: ${cryo.anomalyCount} anomaly cells.`);
   const finiteFailures = validateFiniteBounded(state);
   if (finiteFailures.length > 0) warnings.push(`State validation warning: ${finiteFailures[0]}`);
   if (mesh.neighbourLinkCount < mesh.count * 2) warnings.push('Low neighbour-link count.');
@@ -1344,18 +1526,18 @@ function terrainClassName(code) {
 function deriveTerrainClass(state, i) {
   const water = state.water[i];
   const elev = state.elevation[i];
-  const ice = state.ice[i];
   const oceanDepth = state.oceanDepth[i];
   const shallow = state.shallowWater[i];
   const coast = state.coastProximity[i];
   const arid = state.aridityProxy[i];
   const veg = state.vegetationPotential[i];
   const relief = state.landRelief[i];
-  if (water > 0.50 && ice > 0.36) return 8;
+  const iceType = state.iceType ? state.iceType[i] | 0 : ICE_TYPE_NONE;
+  if (iceType === ICE_TYPE_SEA && isWaterLikeCell(state, i) && state.temperature[i] <= FREEZING_INDEX) return TERRAIN_CLASS_SEA_ICE;
   if (water > 0.72 && oceanDepth > 0.58) return 0;
   if (water > 0.56 && shallow < 0.50) return 1;
   if (water > 0.46 || shallow > 0.54) return 2;
-  if (ice > 0.40) return 7;
+  if (iceType === ICE_TYPE_LAND && !isWaterLikeCell(state, i) && state.temperature[i] <= MELT_INDEX) return TERRAIN_CLASS_LAND_ICE;
   if (coast > 0.52) return 3;
   if (relief > 0.78 || elev > 0.80) return 6;
   if (elev > 0.64 || relief > 0.48) return 5;
@@ -1437,8 +1619,14 @@ function generateWorld(state, mesh, options = {}) {
     state.greenhousePressure[i] = clamp01(profile.greenhouse + 0.045 * (hashUnit(seed, i, 57) - 0.5));
 
     const polarFreeze = smoothstep(0.50, 0.92, latAbs);
-    const freeze = clamp01(profile.ice * 0.40 + polarFreeze * 0.46 + smoothstep(0.40, 0.14, temp) * 0.48 + smoothstep(0.66, 0.90, elevation) * 0.08);
-    state.ice[i] = clamp01(freeze * (0.16 + 0.68 * state.water[i] + 0.16 * (elevation > seaLevel ? 1 : 0)));
+    const coldFactor = inverseSmoothstep(SEA_ICE_FREEZE_INDEX, MELT_INDEX, temp);
+    const highColdTerrain = elevation > seaLevel && temp <= MELT_INDEX ? smoothstep(0.66, 0.90, elevation) : 0;
+    const freeze = clamp01(profile.ice * 0.22 + polarFreeze * 0.34 + coldFactor * 0.62 + highColdTerrain * 0.08);
+    let initialIce = clamp01(freeze * (0.18 + 0.66 * state.water[i] + 0.16 * (elevation > seaLevel ? 1 : 0)));
+    if (temp > WARM_ICE_FORBIDDEN_INDEX) initialIce = 0;
+    else if (temp > MELT_INDEX) initialIce = Math.min(initialIce * 0.20, ICE_VISIBILITY_THRESHOLD * 0.75);
+    else if (state.water[i] > 0.50 && temp > FREEZING_INDEX) initialIce = Math.min(initialIce, ICE_VISIBILITY_THRESHOLD * 0.75);
+    state.ice[i] = clamp01(initialIce);
 
     const windShadow = clamp01(state.elevation[i] > seaLevel ? (state.elevation[i] - seaLevel) * 0.22 : 0);
     state.humidity[i] = clamp01(state.water[i] * 0.50 + (1 - latAbs) * 0.22 + profile.greenhouse * 0.10 - state.ice[i] * 0.20);
@@ -1533,9 +1721,13 @@ function stepPhysical(state, mesh) {
     const target = clamp01(solar + greenhouse - iceAlbedo - elevationCooling + oceanBuffer);
     state.temperature[i] = lerp(state.temperature[i], target, 0.035);
 
-    const freezePressure = clamp01((0.36 - state.temperature[i]) * 2.1 + latAbs * 0.35 + state.water[i] * 0.25);
-    const meltPressure = clamp01((state.temperature[i] - 0.42) * 1.7 + state.rainfall[i] * 0.12);
-    state.ice[i] = clamp01(state.ice[i] + freezePressure * 0.012 - meltPressure * 0.018);
+    const coldFactor = inverseSmoothstep(SEA_ICE_FREEZE_INDEX, MELT_INDEX, state.temperature[i]);
+    const freezePressure = coldFactor > 0 ? clamp01(coldFactor * (0.48 + latAbs * 0.28) + (state.water[i] > 0.08 ? 0.16 : 0)) : 0;
+    const meltPressure = clamp01((state.temperature[i] - FREEZING_INDEX) * 2.4 + state.rainfall[i] * 0.12 + state.greenhousePressure[i] * 0.06);
+    state.ice[i] = clamp01(state.ice[i] + freezePressure * 0.010 - meltPressure * 0.024);
+    if (state.temperature[i] > WARM_ICE_FORBIDDEN_INDEX) state.ice[i] = 0;
+    else if (state.temperature[i] > MELT_INDEX) state.ice[i] = Math.min(state.ice[i] * 0.42, ICE_VISIBILITY_THRESHOLD * 0.75);
+    else if (state.water[i] > 0.50 && state.temperature[i] > FREEZING_INDEX) state.ice[i] = Math.min(state.ice[i], ICE_VISIBILITY_THRESHOLD * 0.75);
     state.cloudCover[i] = clamp01(state.cloudCover[i] * 0.96 + state.humidity[i] * 0.03 + state.water[i] * 0.01);
     state.habitability[i] = clamp01(state.habitability[i] * 0.88 + computeHabitability(state, i) * 0.12);
     updateCellDerivedDiagnostics(state, mesh, i);
@@ -1616,21 +1808,22 @@ function computeHydrologyFlowDiagnostics(state, mesh) {
     const coast = clamp01(state.coastProximity[i]);
     const terrain = state.terrainClass[i] | 0;
     const ocean = terrain === 0 || terrain === 1 || (water > 0.70 && coast < 0.55);
-    const frozen = ice > 0.64 && temp < 0.43 && water > 0.08;
-    const liquidFactor = frozen ? 0.12 : clamp01(1 - ice * 0.72 + Math.max(0, temp - 0.40) * 0.25);
+    const validatedIceType = state.iceType[i] | 0;
+    const frozen = validatedIceType !== ICE_TYPE_NONE && ice > 0.28 && temp <= MELT_INDEX && water > 0.08;
+    const liquidFactor = frozen ? 0.12 : clamp01(1 - ice * 0.54 + Math.max(0, temp - FREEZING_INDEX) * 0.25);
     state.surfaceWater[i] = clamp01(water * 0.22 + runoff * 0.40 + wet * 0.16 + Math.max(0, 0.52 - state.elevation[i]) * 0.10 + (coast > 0.52 ? 0.035 : 0));
     const baseMagnitude = clamp01((runoff * 0.54 + state.surfaceWater[i] * 0.30 + state.rainfall[i] * 0.13 + slope * 0.08) * liquidFactor);
-    state.flowMagnitude[i] = ocean ? 0 : baseMagnitude;
-    if (ocean) {
-      state.flowClass[i] = FLOW_CLASS.OCEAN;
-      state.sinkType[i] = 4;
-      state.flowPathEndpoint[i] = 4;
-      continue;
-    }
+    state.flowMagnitude[i] = ocean && !frozen ? 0 : baseMagnitude;
     if (frozen) {
       state.flowClass[i] = FLOW_CLASS.FROZEN;
       state.sinkType[i] = 5;
       state.flowPathEndpoint[i] = 5;
+      continue;
+    }
+    if (ocean) {
+      state.flowClass[i] = FLOW_CLASS.OCEAN;
+      state.sinkType[i] = 4;
+      state.flowPathEndpoint[i] = 4;
       continue;
     }
     if (baseMagnitude < 0.025 && state.surfaceWater[i] < 0.06) {
@@ -1729,6 +1922,7 @@ function computeHydrologyFlowDiagnostics(state, mesh) {
     if (endpoint) state.flowPathEndpoint[i] = endpoint;
   }
 
+  updateCryosphereDiagnostics(state, mesh, checkCryosphereConsistency(state, mesh));
   state.diagnostics.lastHydrologyFlowMs = nowMs() - start;
 }
 
@@ -1744,6 +1938,7 @@ function stepWater(state, mesh) {
     state.rainfall[i] = clamp01(state.humidity[i] * (0.42 + (1 - latAbs) * 0.36) + orographicLift - state.ice[i] * 0.18);
     state.runoff[i] = clamp01(Math.max(0, state.rainfall[i] - 0.18) * (0.28 + state.elevation[i] * 0.44 + state.slopeProxy[i] * 0.16) + state.ice[i] * Math.max(0, state.temperature[i] - 0.40) * 0.10);
   }
+  reconcileCryosphereState(state, mesh, 'water');
   updateVisualProxyFields(state, mesh);
   computeHydrologyFlowDiagnostics(state, mesh);
   for (let i = 0; i < state.cellCount; i += 1) updateCellDerivedDiagnostics(state, mesh, i);
@@ -2087,8 +2282,8 @@ function applyTool(state, mesh, request = {}) {
       if (state.temperature[i] < 0.34) state.ice[i] = clamp01(state.ice[i] + 0.025 * f);
     } else if (tool === 'iceAsteroid') {
       state.water[i] = clamp01(state.water[i] + 0.08 * f);
+      state.temperature[i] = clamp01(Math.min(state.temperature[i] - 0.12 * f, MELT_INDEX - 0.030 * Math.min(1, f)));
       state.ice[i] = clamp01(state.ice[i] + 0.15 * f * (1 - state.ice[i] * 0.40));
-      state.temperature[i] = clamp01(state.temperature[i] - 0.070 * f);
       state.heatStress[i] = clamp01(state.heatStress[i] - 0.060 * f);
       state.albedo[i] = clamp01(state.albedo[i] + 0.070 * f);
       state.disturbancePressure[i] = clamp01(state.disturbancePressure[i] + 0.028 * f);
@@ -2103,7 +2298,7 @@ function applyTool(state, mesh, request = {}) {
       state.temperature[i] = clamp01(state.temperature[i] - 0.075 * f);
       state.heatStress[i] = clamp01(state.heatStress[i] - 0.075 * f);
       state.cloudCover[i] = clamp01(state.cloudCover[i] + 0.020 * f);
-      if (state.water[i] > 0.08) state.ice[i] = clamp01(state.ice[i] + 0.048 * f);
+      if (state.water[i] > 0.08 && state.temperature[i] <= MELT_INDEX) state.ice[i] = clamp01(state.ice[i] + 0.048 * f);
     } else if (tool === 'raiseLand') {
       state.elevation[i] = clamp01(state.elevation[i] + 0.070 * f);
       state.temperature[i] = clamp01(state.temperature[i] - 0.016 * f);
@@ -2118,7 +2313,7 @@ function applyTool(state, mesh, request = {}) {
       state.greenhousePressure[i] = clamp01(state.greenhousePressure[i] - 0.080 * f);
       state.temperature[i] = clamp01(state.temperature[i] - 0.032 * f);
       state.heatStress[i] = clamp01(state.heatStress[i] - 0.070 * f);
-      if (state.temperature[i] < 0.34 && state.water[i] > 0.10) state.ice[i] = clamp01(state.ice[i] + 0.014 * f);
+      if (state.temperature[i] <= MELT_INDEX && state.water[i] > 0.10) state.ice[i] = clamp01(state.ice[i] + 0.014 * f);
     } else if (tool === 'mineralSeeding') {
       state.nutrientLevel[i] = clamp01(state.nutrientLevel[i] + 0.16 * f * (1 - state.nutrientLevel[i] * 0.35));
       state.recoveryPotential[i] = clamp01(state.recoveryPotential[i] + 0.075 * f);
@@ -2493,6 +2688,41 @@ function executeProbe(probeId, ctx, startSig) {
     return { status: ok ? 'pass' : 'warn', detail: ok ? `Hydrology flow diagnostics present: ${classes.size} flow classes, ${routed} routed cells, ${sinks} sinks/storage cells, ${outlets} coast outlets, ${frozen} frozen/blocked cells.` : `Hydrology flow diagnostics incomplete or low diversity. Missing: ${missing.join(', ') || 'none'}; classes ${classes.size}; routed ${routed}; sinks ${sinks}; outlets ${outlets}.` };
   }
 
+  if (probeId === 'cryosphere_consistency') {
+    generateWorld(ctx.state, ctx.mesh, { seed: 'cryosphere-probe', template: 'procedural_lifeless', archetype: 'balanced' });
+    const afterGenerate = checkCryosphereConsistency(ctx.state, ctx.mesh);
+    const warmSeaAfterGenerate = afterGenerate.warmSeaIceAnomalyCount;
+    const warmLandAfterGenerate = afterGenerate.warmLandIceAnomalyCount;
+    const warmFlowAfterGenerate = afterGenerate.warmFrozenFlowAnomalyCount;
+    const target = 0;
+    ctx.state.water[target] = 0.92;
+    ctx.state.temperature[target] = 0.75;
+    ctx.state.ice[target] = 0.90;
+    ctx.state.iceType[target] = ICE_TYPE_SEA;
+    ctx.state.terrainClass[target] = TERRAIN_CLASS_SEA_ICE;
+    reconcileCryosphereState(ctx.state, ctx.mesh, 'probe-cleanup');
+    updateVisualProxyFields(ctx.state, ctx.mesh);
+    computeHydrologyFlowDiagnostics(ctx.state, ctx.mesh);
+    const afterCleanup = checkCryosphereConsistency(ctx.state, ctx.mesh);
+    const warmCellClean = ctx.state.ice[target] <= ICE_VISIBILITY_THRESHOLD && ctx.state.iceType[target] === ICE_TYPE_NONE && ctx.state.terrainClass[target] !== TERRAIN_CLASS_SEA_ICE && ctx.state.flowClass[target] !== FLOW_CLASS.FROZEN;
+    const iceProbe = 1;
+    ctx.state.water[iceProbe] = 0.86;
+    ctx.state.temperature[iceProbe] = 0.72;
+    ctx.state.ice[iceProbe] = 0.02;
+    recomputeDerivedDiagnostics(ctx.state, ctx.mesh);
+    const before = signatureState(ctx.state);
+    const res = applyTool(ctx.state, ctx.mesh, { tool: 'iceAsteroid', cellId: iceProbe, radius: 0, strength: 1 });
+    const toolCreatesValidIce = res.mutated && ctx.state.temperature[iceProbe] <= MELT_INDEX && ctx.state.ice[iceProbe] > ICE_VISIBILITY_THRESHOLD && ctx.state.iceType[iceProbe] !== ICE_TYPE_NONE;
+    const finalCheck = checkCryosphereConsistency(ctx.state, ctx.mesh);
+    const ok = warmSeaAfterGenerate === 0 && warmLandAfterGenerate === 0 && warmFlowAfterGenerate === 0 && warmCellClean && toolCreatesValidIce && finalCheck.anomalyCount === 0 && before !== signatureState(ctx.state);
+    return {
+      status: ok ? 'pass' : 'fail',
+      detail: ok
+        ? 'Cryosphere gates passed: generation has no warm ice anomalies; forced warm sea ice was cleaned; Ice Asteroid creates only temperature-justified ice.'
+        : `Cryosphere failures: generated sea ${warmSeaAfterGenerate}, land ${warmLandAfterGenerate}, flow ${warmFlowAfterGenerate}; warm cleanup ${warmCellClean}; ice tool ${toolCreatesValidIce}; final anomalies ${finalCheck.anomalyCount}.`
+    };
+  }
+
   if (probeId === 'render_data_finite') {
     const render = buildRenderData(ctx.state, ctx.mesh);
     const failures = [];
@@ -2596,7 +2826,7 @@ function stepOnce() {
   state.trendDirty = true;
   state.lastAction = summariseStepChange(lifeStats);
   state.lastChange = 'What changed: climate, water, life, ecosystem, stewardship, and early-civilisation diagnostics advanced through the Worker tick pipeline.';
-  state.lastWatch = 'Watch temperature, water stress, life viability, biosphere health, settlements, and collapse risk.';
+  state.lastWatch = 'Watch temperature, validated ice, water stress, flow blockages, life viability, biosphere health, settlements, and collapse risk.';
   state.diagnostics.lastTickMs = nowMs() - start;
 }
 
@@ -2648,6 +2878,19 @@ function sendDiagnostics() {
     workerMessageCount: state ? state.diagnostics.messageCount : 0,
     lastWorkerError: state ? state.diagnostics.lastError : '',
     lastHydrologyFlowMs: state ? state.diagnostics.lastHydrologyFlowMs || 0 : 0,
+    lastCryosphereReconciliationMs: state ? state.diagnostics.lastCryosphereReconciliationMs || 0 : 0,
+    lastCryosphereCorrections: state ? state.diagnostics.lastCryosphereCorrections || 0 : 0,
+    cryosphereStatus: state ? state.diagnostics.cryosphereStatus || 'unchecked' : 'not initialised',
+    cryosphereAnomalyCount: state ? state.diagnostics.cryosphereAnomalyCount || 0 : 0,
+    warmIceAnomalyCount: state ? state.diagnostics.warmIceAnomalyCount || 0 : 0,
+    warmSeaIceAnomalyCount: state ? state.diagnostics.warmSeaIceAnomalyCount || 0 : 0,
+    warmLandIceAnomalyCount: state ? state.diagnostics.warmLandIceAnomalyCount || 0 : 0,
+    warmFrozenFlowAnomalyCount: state ? state.diagnostics.warmFrozenFlowAnomalyCount || 0 : 0,
+    seaIceShare: state ? state.diagnostics.seaIceShare || 0 : 0,
+    landIceShare: state ? state.diagnostics.landIceShare || 0 : 0,
+    warmRegionIceShare: state ? state.diagnostics.warmRegionIceShare || 0 : 0,
+    coldRegionIceShare: state ? state.diagnostics.coldRegionIceShare || 0 : 0,
+    meanIceTemperatureC: state ? state.diagnostics.meanIceTemperatureC || 0 : 0,
     activeFlowShare: state ? computeSummary(state, mesh).activeFlowShare : 0,
     basinSinkShare: state ? computeSummary(state, mesh).basinSinkShare : 0,
     coastOutletShare: state ? computeSummary(state, mesh).coastOutletShare : 0
@@ -2686,7 +2929,7 @@ function handleCommand(type, payload = {}) {
     for (let i = 0; i < requested; i += 1) stepOnce();
     state.lastAction = `Advanced ${requested} years inside the simulation worker.`;
     state.lastChange = 'What changed: multiple Worker ticks advanced climate, water, life, ecosystem, and early-civilisation diagnostics.';
-    state.lastWatch = 'Watch trends for water, ice, temperature, primitive life, biosphere health, and collapse risk.';
+    state.lastWatch = 'Watch trends for water, temperature-gated ice, primitive life, biosphere health, flow blockages, and collapse risk.';
     fullUpdate({ render: true });
   } else if (type === COMMANDS.SET_SPEED) {
     state.speed = Math.max(0, Math.min(10, Number(payload.speed ?? 1)));

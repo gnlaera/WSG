@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
-  <title>WSG Engine v2 Build 0.2.5.1 - Worker Cache-Bust Hotfix</title>
+  <title>WSG Engine v2 Build 0.2.6 - F34 High-Resolution Planet Gate</title>
   <style>
 :root {
   color-scheme: dark;
@@ -220,8 +220,8 @@ body.bottom-info-collapsed .layerLegend { display: none; }
 <div class="app">
   <header class="topbar">
     <div class="brand">
-      <strong id="build-label">WSG Engine v2 Build 0.2.5.1 - Worker Cache-Bust Hotfix</strong>
-      <span id="summary-line">Cryosphere-consistent high-resolution planet with cache-busted Worker loading, temperature-gated ice, preserved hydrology-flow legibility, and clean player shell.</span>
+      <strong id="build-label">WSG Engine v2 Build 0.2.6 - F34 High-Resolution Planet Gate</strong>
+      <span id="summary-line">F34 high-resolution planet gate with 23,120 triangle faces, temperature-gated cryosphere, preserved hydrology-flow legibility, and clean player shell.</span>
     </div>
     <label class="small headerTemplateControl" title="World template">
       <span>Template</span>
@@ -231,7 +231,7 @@ body.bottom-info-collapsed .layerLegend { display: none; }
       <span>Archetype</span>
       <select id="world-archetype"></select>
     </label>
-    <div class="status-pill meshBadge" title="Active mesh"><span>Mesh:</span> <span id="mesh-status">High Resolution - 11,520 triangle faces</span></div>
+    <div class="status-pill meshBadge" title="Active mesh"><span>Mesh:</span> <span id="mesh-status">F34 High Resolution - 23,120 triangle faces</span></div>
     <button id="generate-button" class="primary" type="button">Generate Planet</button>
     <button id="reset-button" type="button">Reset Planet</button>
     <button id="run-pause-button" type="button">Run</button>
@@ -260,7 +260,7 @@ body.bottom-info-collapsed .layerLegend { display: none; }
     <button id="toggle-trends" class="toggle-button" type="button">Open Trends</button>
     <button id="toggle-diagnostics" class="toggle-button diagnostics-access" type="button" title="Optional performance and health diagnostics">Diagnostics</button>
     <div class="status-pill">Worker: <span id="worker-status">initialising</span></div>
-    <div id="version-warning" class="status-pill version-warning hidden">Worker version mismatch. Hard refresh or redeploy both files.</div>
+    <div id="version-warning" class="status-pill version-warning hidden">Worker version mismatch. Redeploy both files or hard refresh.</div>
   </header>
 
   <main class="main app-shell">
@@ -303,7 +303,7 @@ body.bottom-info-collapsed .layerLegend { display: none; }
           <div class="vital"><label>Primitive life</label><span id="vital-life">0.000</span></div>
           <div class="vital"><label>Settlements</label><span id="vital-settlement">0%</span></div>
           <div class="vital"><label>Collapse risk</label><span id="vital-collapse">0.000</span></div>
-          <div class="vital"><label>Mesh</label><span id="vital-mesh">High Resolution</span></div>
+          <div class="vital"><label>Mesh</label><span id="vital-mesh">F34 High Resolution</span></div>
         </div>
       </div>
       <div id="status-line" class="status-line quick-start">Quick Start: Generate planet, select tool, click planet, Step or Run time, inspect consequences.</div>
@@ -382,7 +382,7 @@ body.bottom-info-collapsed .layerLegend { display: none; }
   </section>
 
   <footer class="footer">
-    <span>Engine v2 cryosphere consistency and cache-busted Worker build. Two files only: index.html and simulation-worker.js. Canvas 2D renderer; Worker-owned mesh, semantic surface arrays, tools, validation, and render data.</span>
+    <span>Engine v2 F34 high-resolution planet gate. Two files only: index.html and simulation-worker.js. Canvas 2D renderer; Worker-owned mesh, semantic surface arrays, tools, validation, hydrology flow, cryosphere checks, and render data.</span>
     <span>Two-file Worker architecture</span>
   </footer>
 </div>
@@ -395,13 +395,13 @@ body.bottom-info-collapsed .layerLegend { display: none; }
 /* ============================================================
    Protocol constants
    Source section: message-protocol.js
-   Compacted for Engine v2 0.2.1.
+   Compacted for Engine v2 0.2.6.
    ============================================================ */
 
-const BUILD_VERSION = '0.2.5.1';
-const BUILD_LABEL = 'WSG Engine v2 Build 0.2.5.1 - Worker Cache-Bust Hotfix';
+const BUILD_VERSION = '0.2.6';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.2.6 - F34 High-Resolution Planet Gate';
 const WORKER_URL_VERSION = BUILD_VERSION;
-const WORKER_URL = './simulation-worker.js?v=0.2.5.1';
+const WORKER_URL = './simulation-worker.js?v=0.2.6';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',
@@ -457,13 +457,13 @@ const ARCHETYPES = Object.freeze([
 
 
 const MESH_QUALITY_OPTIONS = Object.freeze([
-  { id: 'highres', label: 'High Resolution - 11,520 triangle faces', frequency: 24, targetFaces: 11520, default: true }
+  { id: 'f34', label: 'F34 High Resolution - 23,120 triangle faces', frequency: 34, targetFaces: 23120, default: true }
 ]);
 
 function meshQualityProfile(id) {
-  const requested = String(id || 'highres');
-  return MESH_QUALITY_OPTIONS.find((item) => item.id === requested) || MESH_QUALITY_OPTIONS[0];
+  return MESH_QUALITY_OPTIONS[0];
 }
+
 
 const LAYERS = Object.freeze([
   { id: 'elevation', label: 'Elevation' },
@@ -549,7 +549,10 @@ const PROBES = Object.freeze([
   { id: 'visual_resolution', label: 'Scientific visual resolution check' },
   { id: 'high_resolution_spherical_renderer', label: 'High-resolution spherical renderer health check' },
   { id: 'coherent_planet_surface', label: 'Coherent planet surface health check' },
-  { id: 'hydrology_flow_legibility', label: 'Hydrology flow legibility health check' }
+  { id: 'hydrology_flow_legibility', label: 'Hydrology flow legibility health check' },
+  { id: 'cryosphere_consistency', label: 'Cryosphere consistency health check' },
+  { id: 'cryosphere_smoke', label: 'Cryosphere smoke regression check' },
+  { id: 'f34_gate', label: 'F34 high-resolution planet gate check' }
 ]);
 
 function makeEnvelope(type, payload = {}) {
@@ -560,7 +563,7 @@ function makeEnvelope(type, payload = {}) {
 /* ============================================================
    Utility math
    Source section: util/math.js
-   Compacted for Engine v2 0.2.1.
+   Compacted for Engine v2 0.2.6.
    ============================================================ */
 
 function clamp(value, min, max) {
@@ -606,7 +609,7 @@ function finite01(value) {
 /* ============================================================
    UI references and renderers
    Source section: ui.js
-   Compacted for Engine v2 0.2.1.
+   Compacted for Engine v2 0.2.6.
    ============================================================ */
 
 
@@ -700,7 +703,7 @@ function initialiseUi(ui) {
   ui.buildLabel.textContent = BUILD_LABEL;
   fillSelect(ui.template, TEMPLATES);
   fillSelect(ui.archetype, ARCHETYPES);
-  if (ui.meshQuality) { fillSelect(ui.meshQuality, MESH_QUALITY_OPTIONS); ui.meshQuality.value = 'highres'; }
+  if (ui.meshQuality) { fillSelect(ui.meshQuality, MESH_QUALITY_OPTIONS); ui.meshQuality.value = 'f34'; }
   if (ui.meshStatus) ui.meshStatus.textContent = MESH_QUALITY_OPTIONS[0].label;
   fillSelect(ui.visualMode, VISUAL_MODES);
   fillSelect(ui.layer, LAYERS);
@@ -717,7 +720,7 @@ function initialiseUi(ui) {
 function renderSummary(ui, summary) {
   const warnings = summary.warnings && summary.warnings.length ? summary.warnings : ['None'];
   if (ui.workerStatus && ui.workerStatus.textContent === 'initialising') ui.workerStatus.textContent = summary.diagnostics?.workerStatus || 'READY';
-  ui.summaryLine.textContent = `${summary.template} | ${summary.archetype} | High Resolution | year ${summary.year} | cells ${summary.cellCount}`;
+  ui.summaryLine.textContent = `${summary.template} | ${summary.archetype} | F34 High Resolution | year ${summary.year} | cells ${summary.cellCount}`;
   setTextIfNode(ui.vitalYear, summary.year);
   setTextIfNode(ui.vitalTick, summary.stepCount ?? 0);
   setTextIfNode(ui.vitalWater, formatPct(summary.waterShare));
@@ -727,11 +730,11 @@ function renderSummary(ui, summary) {
   setTextIfNode(ui.vitalLife, formatNum(summary.primitiveLifeMean, 3));
   setTextIfNode(ui.vitalSettlement, formatPct(summary.settlementShare));
   setTextIfNode(ui.vitalCollapse, formatNum(summary.collapseRiskMean, 3));
-  setTextIfNode(ui.vitalMesh, `High Resolution (${summary.cellCount || 0})`);
-  if (ui.meshStatus) ui.meshStatus.textContent = `High Resolution - ${summary.cellCount || 0} triangle faces`;
+  setTextIfNode(ui.vitalMesh, `F34 / ${summary.cellCount || 0}`);
+  if (ui.meshStatus) ui.meshStatus.textContent = `F34 High Resolution - ${summary.cellCount || 0} triangle faces`;
   ui.stats.innerHTML = `
     <div class="metric"><span>Year</span><strong>${summary.year}</strong></div>
-    <div class="metric"><span>Mesh</span><strong>High Resolution | ${summary.cellCount} cells</strong></div>
+    <div class="metric"><span>Mesh</span><strong>F34 High Resolution | ${summary.cellCount} cells</strong></div>
     <div class="metric"><span>Average temperature</span><strong>${formatNum(summary.averageTemperatureC, 1)} °C</strong></div>
     <div class="metric"><span>Water share</span><strong>${formatPct(summary.waterShare)}</strong></div>
     <div class="metric"><span>Ice share</span><strong>${formatPct(summary.iceShare)}</strong></div>
@@ -920,8 +923,26 @@ function showVersionWarning(ui, versionOk, workerBuildVersion, workerBuildLabel)
     return;
   }
   ui.versionWarning.classList.remove('hidden');
-  ui.versionWarning.textContent = `Worker version mismatch. Hard refresh or redeploy both files. HTML ${BUILD_VERSION}; Worker ${workerBuildVersion || 'unknown'}.`;
+  ui.versionWarning.textContent = `Worker version mismatch. Redeploy both files or hard refresh. HTML ${BUILD_VERSION}; Worker ${workerBuildVersion || 'unknown'}.`;
   if (ui.summaryLine) ui.summaryLine.textContent = `Worker version mismatch. HTML ${BUILD_VERSION}; Worker ${workerBuildVersion || 'unknown'} (${workerBuildLabel || 'unknown label'}).`;
+}
+
+
+function frameBudgetStatus(mainMetrics, data) {
+  const render = Number(mainMetrics?.lastRenderMs || 0);
+  const texture = Number(mainMetrics?.lastTextureMs || 0);
+  const tick = Number(data?.lastWorkerTickMs || 0);
+  if (render > 40 || tick > 30) return `warning: render ${formatNum(render, 1)} ms, tick ${formatNum(tick, 1)} ms`;
+  if (texture > 90) return `texture rebuild ${formatNum(texture, 1)} ms; acceptable if not hover-driven`;
+  return 'within broad budget';
+}
+
+function heavyOverlayStatus() {
+  const layer = byId('layer-select')?.value || '';
+  const mode = byId('visual-mode')?.value || '';
+  if (layer === 'waterFlow' && mode === 'diagnostic') return 'diagnostic flow marks thinned';
+  if (layer === 'waterFlow') return 'flow marks screen-space thinned';
+  return 'none';
 }
 
 function renderDiagnostics(ui, diagnostics, mainMetrics) {
@@ -930,7 +951,11 @@ function renderDiagnostics(ui, diagnostics, mainMetrics) {
     <div class="metric"><span>HTML build version</span><strong>${BUILD_VERSION}</strong></div>
     <div class="metric"><span>Worker build version</span><strong>${escapeHtml(data.workerBuildVersion || 'unknown')}</strong></div>
     <div class="metric"><span>Worker URL version</span><strong>${WORKER_URL_VERSION}</strong></div>
-    <div class="metric"><span>Version match</span><strong>${data.workerBuildVersion === BUILD_VERSION ? 'yes' : 'no'}</strong></div>
+    <div class="metric"><span>Version match</span><strong>${data.workerBuildVersion === BUILD_VERSION && WORKER_URL_VERSION === BUILD_VERSION ? 'yes' : 'no'}</strong></div>
+    <div class="metric"><span>F34 gate</span><strong>${data.meshFrequency === 34 && data.cellCount === 23120 ? 'pass' : 'fail'}</strong></div>
+    <div class="metric"><span>Array shape</span><strong>${escapeHtml(data.arrayShapeStatus || 'unchecked')}</strong></div>
+    <div class="metric"><span>Frame budget</span><strong>${escapeHtml(frameBudgetStatus(mainMetrics, data))}</strong></div>
+    <div class="metric"><span>Heavy overlay</span><strong>${escapeHtml(heavyOverlayStatus())}</strong></div>
     <div class="metric"><span>Worker status</span><strong>${escapeHtml(data.workerStatus || 'unknown')}</strong></div>
     <div class="metric"><span>Worker tick</span><strong>${formatNum(data.lastWorkerTickMs, 2)} ms</strong></div>
     <div class="metric"><span>Mesh quality</span><strong>${escapeHtml(data.meshQualityLabel || data.meshQuality || 'n/a')}</strong></div>
@@ -1605,11 +1630,11 @@ function createRenderer(canvas) {
   function drawWaterFlowOverlay(context, cx, cy, radius, densityMode) {
     if (!data?.downstreamCell || !lastProjection?.length) return;
     const diagnostic = densityMode === 'diagnostic';
-    const maxMarks = diagnostic ? 1800 : 950;
+    const maxMarks = diagnostic ? 1600 : 760;
     const minMag = diagnostic ? 0.025 : 0.070;
     const candidates = [];
     const count = data.count || 0;
-    const stride = diagnostic ? 1 : Math.max(1, Math.floor(count / 6400));
+    const stride = diagnostic ? Math.max(1, Math.floor(count / 16000)) : Math.max(1, Math.floor(count / 5200));
     for (let i = 0; i < count; i += stride) {
       const cls = data.flowClass?.[i] | 0;
       const mag = clamp01(data.flowMagnitude?.[i] || data.waterFlow?.[i] || 0);
@@ -2086,7 +2111,7 @@ function rgb(r, g, b) {
 /* ============================================================
    Controls
    Source section: controls.js
-   Compacted for Engine v2 0.2.1.
+   Compacted for Engine v2 0.2.6.
    ============================================================ */
 
 
@@ -2101,7 +2126,7 @@ function bindControls(ui, actions) {
   ui.archetype.addEventListener('change', () => actions.command(COMMANDS.SET_ARCHETYPE, { archetype: ui.archetype.value }));
   if (ui.meshQuality) ui.meshQuality.addEventListener('change', () => {
     actions.command(COMMANDS.GENERATE, collectGenerationOptions(ui));
-    actions.addEvent?.(`High-resolution mesh is fixed; planet regenerated deliberately.`);
+    actions.addEvent?.(`F34 mesh is fixed; planet regenerated deliberately.`);
   });
   ui.applyTool.addEventListener('click', () => actions.applyToolToSelected());
   if (ui.runProbe) ui.runProbe.addEventListener('click', () => actions.command(COMMANDS.RUN_PROBE, { probeId: ui.probeSelect.value }));
@@ -2173,7 +2198,7 @@ function collectGenerationOptions(ui) {
     seed: ui.seed.value || 'ENGINE-V2-001',
     template: ui.template.value,
     archetype: ui.archetype.value,
-    meshQuality: 'highres'
+    meshQuality: 'f34'
   };
 }
 
@@ -2246,7 +2271,7 @@ function updateBottomPanelVisibility(ui) {
 /* ============================================================
    Trends
    Source section: trends.js
-   Compacted for Engine v2 0.2.1.
+   Compacted for Engine v2 0.2.6.
    ============================================================ */
 
 const MAX_SAMPLES = 72;
@@ -2412,7 +2437,7 @@ function formatDelta(first, latest, suffix, percent = false) {
 /* ============================================================
    Diagnostics helpers
    Source section: diagnostics.js
-   Compacted for Engine v2 0.2.1.
+   Compacted for Engine v2 0.2.6.
    ============================================================ */
 
 function classifyTiming(ms, warnMs = 20, failMs = 60) {
@@ -2476,7 +2501,7 @@ function startWorker() {
 
     worker = new Worker(WORKER_URL);
     setStatus(ui, 'Worker: external simulation-worker.js starting.');
-    addEvent(ui, 'External Worker attempted: simulation-worker.js?v=0.2.5.1.');
+    addEvent(ui, `External Worker attempted: simulation-worker.js?v=${WORKER_URL_VERSION}.`);
 
     worker.addEventListener('message', onWorkerMessage);
     worker.addEventListener('error', (event) => {
@@ -2532,7 +2557,7 @@ function onWorkerMessage(event) {
     if (ui.workerStatus) ui.workerStatus.textContent = versionOk ? `READY (${displayMode})` : `READY (${displayMode}, version mismatch)`;
     setStatus(ui, versionOk
       ? `Worker READY (${displayMode}) | ${payload.meshType} | ${payload.meshQualityLabel || 'mesh'} | ${payload.cellCount} cells | Worker ${workerBuildVersion}`
-      : `Worker version mismatch. Hard refresh or redeploy both files. HTML ${BUILD_VERSION}; Worker ${workerBuildVersion}.`);
+      : `Worker version mismatch. Redeploy both files or hard refresh. HTML ${BUILD_VERSION}; Worker ${workerBuildVersion}.`);
     addEvent(ui, versionOk ? `Worker reported READY using ${displayMode} mode, version ${workerBuildVersion}.` : `Worker version mismatch. HTML ${BUILD_VERSION}; Worker ${workerBuildVersion}; label ${workerBuildLabel}.`);
     if (!initialGenerateSent) {
       initialGenerateSent = true;
@@ -2655,7 +2680,7 @@ bindControls(ui, { command, toggleRun, applyToolToSelected, clickCanvas, hover, 
 globalThis.addEventListener('resize', () => { renderer.updateViewport(true); redraw(); });
 createWorker();
 
-addEvent(ui, 'Engine v2 main thread initialised inline in index.html. high-resolution spherical renderer active. Deploy index.html and simulation-worker.js together to GitHub Pages or another static host.');
+addEvent(ui, 'Engine v2 main thread initialised inline in index.html. F34 high-resolution planet gate active. Deploy index.html and simulation-worker.js together to GitHub Pages or another static host.');
 </script>
 </body>
 </html>

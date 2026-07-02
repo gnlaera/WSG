@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
-  <title>WSG Engine v2 Build 0.2.8 - F42 Mesh Resolution Uplift</title>
+  <title>WSG Engine v2 Build 0.2.9 - Reference Surface Semantics</title>
   <style>
 :root {
   color-scheme: dark;
@@ -342,8 +342,8 @@ body.bottom-info-collapsed .bottomActionStrip .viewGroup { display: none; }
 <div class="app">
   <header class="topbar referenceHeader">
     <div class="brand projectBrand">
-      <strong id="build-label">WSG Engine v2 Build 0.2.8 - F42 Mesh Resolution Uplift</strong>
-      <span id="summary-line">Reference UI convergence: grouped layers, F42 mesh, Worker-owned state, directional hydrology, and readable Natural Planet surface.</span>
+      <strong id="build-label">WSG Engine v2 Build 0.2.9 - Reference Surface Semantics</strong>
+      <span id="summary-line">Reference surface semantics: F42 mesh, richer texture-first terrain classes, sharper shelves/coasts, stronger relief, validated cryosphere, and directional hydrology.</span>
     </div>
     <div class="topVitalDeck" aria-label="Simplified model vital signs">
       <div class="topVital atmosphere"><span class="vitalIcon">☁</span><label>Atmosphere</label><strong id="vital-temp">0 °C</strong><small>model index</small></div>
@@ -402,7 +402,7 @@ body.bottom-info-collapsed .bottomActionStrip .viewGroup { display: none; }
 
       </div>
       <div id="status-line" class="status-line quick-start">Quick Start: Generate planet, select tool, click planet, Step or Run time, inspect consequences.</div>
-      <div id="layer-legend" class="status-line layerLegend">Layer legend: Natural Planet uses a coherent cached texture surface with semantic terrain classes, preserved coastlines, ice edges, relief, cloud haze and visual-only lighting.</div>
+      <div id="layer-legend" class="status-line layerLegend">Layer legend: Natural Planet uses a cached semantic texture surface with distinct deep ocean, shelves, coasts, lowlands, highlands, mountains, arid/wet land, sea ice, land ice, cloud haze and visual-only lighting.</div>
     </section>
 
     <aside class="panel feedbackPanel info-column" aria-label="World panels">
@@ -517,13 +517,13 @@ body.bottom-info-collapsed .bottomActionStrip .viewGroup { display: none; }
 /* ============================================================
    Protocol constants
    Source section: message-protocol.js
-   Compacted for Engine v2 0.2.8.
+   Compacted for Engine v2 0.2.9.
    ============================================================ */
 
-const BUILD_VERSION = '0.2.8';
-const BUILD_LABEL = 'WSG Engine v2 Build 0.2.8 - F42 Mesh Resolution Uplift';
+const BUILD_VERSION = '0.2.9';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.2.9 - Reference Surface Semantics';
 const WORKER_URL_VERSION = BUILD_VERSION;
-const WORKER_URL = './simulation-worker.js?v=0.2.8';
+const WORKER_URL = './simulation-worker.js?v=0.2.9';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',
@@ -685,7 +685,7 @@ function makeEnvelope(type, payload = {}) {
 /* ============================================================
    Utility math
    Source section: util/math.js
-   Compacted for Engine v2 0.2.8.
+   Compacted for Engine v2 0.2.9.
    ============================================================ */
 
 function clamp(value, min, max) {
@@ -731,7 +731,7 @@ function finite01(value) {
 /* ============================================================
    UI references and renderers
    Source section: ui.js
-   Compacted for Engine v2 0.2.8.
+   Compacted for Engine v2 0.2.9.
    ============================================================ */
 
 
@@ -1069,7 +1069,7 @@ function frameBudgetStatus(mainMetrics, data) {
   const texture = Number(mainMetrics?.lastTextureMs || 0);
   const tick = Number(data?.lastWorkerTickMs || 0);
   if (render > 40 || tick > 30) return `warning: render ${formatNum(render, 1)} ms, tick ${formatNum(tick, 1)} ms`;
-  if (texture > 90) return `texture rebuild ${formatNum(texture, 1)} ms; acceptable if not hover-driven`;
+  if (texture > 120) return `texture rebuild ${formatNum(texture, 1)} ms; acceptable if state-driven and not hover-driven`;
   return 'within broad budget';
 }
 
@@ -1102,6 +1102,9 @@ function renderDiagnostics(ui, diagnostics, mainMetrics) {
     <div class="metric"><span>Render-data build</span><strong>${formatNum(data.lastRenderDataBuildMs, 2)} ms</strong></div>
     <div class="metric"><span>Main render</span><strong>${formatNum(mainMetrics.lastRenderMs, 2)} ms</strong></div>
     <div class="metric"><span>Texture rebuild</span><strong>${formatNum(mainMetrics.lastTextureMs, 2)} ms</strong></div>
+    <div class="metric"><span>Texture source</span><strong>${escapeHtml(mainMetrics.textureSource || 'cached semantic texture')}</strong></div>
+    <div class="metric"><span>Texture reason</span><strong>${escapeHtml(mainMetrics.textureReason || 'n/a')}</strong></div>
+    <div class="metric"><span>Texture resolution</span><strong>${escapeHtml(mainMetrics.textureResolution || 'n/a')}</strong></div>
     <div class="metric"><span>Trend draw</span><strong>${formatNum(trendState.lastDrawMs, 2)} ms</strong></div>
     <div class="metric"><span>DOM update</span><strong>${formatNum(mainMetrics.lastDomMs, 2)} ms</strong></div>
     <div class="metric"><span>Render dirty</span><strong>${String(data.renderDirty)}</strong></div>
@@ -1231,7 +1234,7 @@ function updateLayerChipActive(ui) {
 }
 
 function layerLegendText(mode, layerId, layerLabel) {
-  if (mode === 'natural') return 'Natural Planet: coherent texture-first surface using semantic terrain classes, bathymetry, coastlines, ice, cloud haze, atmosphere rim, and directional lighting. Values remain simplified model indices.';
+  if (mode === 'natural') return 'Natural Planet: texture-first semantic surface with deep ocean, shelves, coast bands, relief, arid/wet land, ice type separation, subtle cloud haze, atmosphere rim and visual-only lighting. Values remain simplified model indices.';
   const families = {
     elevation: 'Elevation model index: deep basin / lowland / highland / mountain.',
     water: 'Water model index: dry / damp / shallow or coastal / saturated.',
@@ -1320,6 +1323,9 @@ function createRenderer(canvas) {
   let textureClassMap = null;
   let textureMapSignature = '';
   let lastTextureMs = 0;
+  let lastTextureReason = 'not built';
+  let lastTextureSource = 'cached semantic texture';
+  let lastTextureResolution = 'n/a';
   let naturalTextureSignature = '';
   let naturalTextureDirty = true;
   let projectedCanvas = null;
@@ -1446,11 +1452,16 @@ function createRenderer(canvas) {
   }
 
   function ensureNaturalTexture(cloudsEnabled) {
-    const textureSignature = [data.count, data.tick, data.year, data.meshQuality, cloudsEnabled ? 1 : 0, data.bytes || 0, 'coherent-surface-v6-reference-ui'].join('|');
-    if (!naturalTextureDirty && naturalTextureSignature === textureSignature && naturalTextureImage) return;
+    const textureSignature = [data.count, data.tick, data.year, data.meshQuality, cloudsEnabled ? 1 : 0, data.bytes || 0, 'semantic-surface-v7-reference-detail'].join('|');
+    if (!naturalTextureDirty && naturalTextureSignature === textureSignature && naturalTextureImage) {
+      lastTextureReason = 'cache hit';
+      return;
+    }
     const start = performance.now();
-    const texW = data.count >= 10000 ? 1280 : data.count >= 5000 ? 1024 : 832;
+    const rebuildReason = !naturalTextureImage ? 'initial semantic texture build' : (naturalTextureDirty ? 'render data changed' : 'state or cloud signature changed');
+    const texW = data.count >= 30000 ? 1536 : data.count >= 10000 ? 1280 : data.count >= 5000 ? 1024 : 832;
     const texH = Math.floor(texW / 2);
+    lastTextureResolution = `${texW} x ${texH}`;
     if (!naturalTextureCanvas) {
       naturalTextureCanvas = document.createElement('canvas');
       naturalTextureCtx = naturalTextureCanvas.getContext('2d', { alpha: false });
@@ -1469,7 +1480,9 @@ function createRenderer(canvas) {
     const classes = textureClassMap;
     for (let p = 0; p < textureCellMap.length; p += 1) {
       const cell = textureCellMap[p];
-      const rgba = naturalRgb(data, cell, 1, cloudsEnabled);
+      const x = p % texW;
+      const y = Math.floor(p / texW);
+      const rgba = enhanceSurfacePixel(data, cell, x, y, texW, texH, naturalRgb(data, cell, 1, cloudsEnabled), cloudsEnabled);
       const idx = p * 4;
       dst[idx] = rgba[0];
       dst[idx + 1] = rgba[1];
@@ -1480,11 +1493,14 @@ function createRenderer(canvas) {
     classAwareSmooth(dst, classes, texW, texH, 1);
     sharpenSemanticEdges(dst, classes, texW, texH, textureCellMap, data);
     addLatitudeAndCoastAccents(dst, texW, texH, textureCellMap, data);
+    addFineSemanticTexture(dst, classes, texW, texH, textureCellMap, data, cloudsEnabled);
     tctx.putImageData(image, 0, 0);
     naturalTextureImage = tctx.getImageData(0, 0, texW, texH);
     naturalTextureSignature = textureSignature;
     naturalTextureDirty = false;
     projectedDirty = true;
+    lastTextureReason = rebuildReason;
+    lastTextureSource = 'cached semantic texture';
     lastTextureMs = performance.now() - start;
   }
 
@@ -1541,6 +1557,163 @@ function createRenderer(canvas) {
     textureMapSignature = signature;
   }
 
+  function enhanceSurfacePixel(source, cell, x, y, w, h, rgb, cloudsEnabled) {
+    const cls = terrainVisualClass(source, cell);
+    const u = (x + 0.5) / w;
+    const v = (y + 0.5) / h;
+    const lon = u * Math.PI * 2 - Math.PI;
+    const lat = Math.PI * 0.5 - v * Math.PI;
+    const elev = clamp01(source.elevation?.[cell] ?? 0);
+    const water = clamp01(source.water?.[cell] ?? 0);
+    const depth = clamp01(source.oceanDepth?.[cell] ?? 0);
+    const shelf = clamp01(source.shallowWater?.[cell] ?? 0);
+    const coast = clamp01(source.coastProximity?.[cell] ?? 0);
+    const relief = clamp01(source.landRelief?.[cell] ?? source.slopeProxy?.[cell] ?? 0);
+    const arid = clamp01(source.aridityProxy?.[cell] ?? 0);
+    const wet = clamp01(source.wetnessProxy?.[cell] ?? 0);
+    const veg = clamp01(source.vegetationPotential?.[cell] ?? 0);
+    const life = clamp01(source.primitiveLife?.[cell] ?? 0);
+    const iceType = Number(source.iceType?.[cell] ?? 0) | 0;
+    const ice = iceType !== 0 ? clamp01(source.ice?.[cell] ?? 0) : 0;
+    const heat = clamp01(source.heatStress?.[cell] ?? 0);
+    const cloud = cloudsEnabled ? clamp01(source.cloudCover?.[cell] ?? 0) : 0;
+    let r = rgb[0], g = rgb[1], b = rgb[2];
+
+    const continental = fbm2(lon * 1.8 + 11.0, lat * 2.2 - 3.0, 4);
+    const fine = fbm2(lon * 12.0 + elev * 3.0, lat * 13.0 + water * 2.5, 3);
+    const ridge = Math.pow(1 - Math.abs(fbm2(lon * 6.2 + 5.0, lat * 8.4 - 2.0, 4) - 0.5) * 2, 1.8);
+    const grain = (fine - 0.5) * 2;
+
+    if (cls <= 2 || cls === 8) {
+      const basin = (continental - 0.5) * (1 - shelf * 0.55) * (3 + depth * 10);
+      const current = Math.sin(lon * 22.0 + lat * 6.0 + continental * 4.0) * Math.cos(lat * 18.0 - fine * 3.0);
+      const detail = basin + current * 1.15 * (1 - depth * 0.35);
+      r += detail * 0.10;
+      g += detail * 0.32;
+      b += detail * 0.78;
+      if (shelf > 0.08 || coast > 0.20) {
+        const shelfMix = clamp01(shelf * 0.26 + coast * 0.18);
+        r = lerp(r, 72, shelfMix);
+        g = lerp(g, 184, shelfMix);
+        b = lerp(b, 205, shelfMix * 0.92);
+      }
+      if (cls === 0 && depth > 0.55) {
+        r *= 0.88; g *= 0.92; b *= 0.98;
+      }
+    } else {
+      const ridgeBoost = ridge * relief;
+      const highlandShade = ridgeBoost * (cls === 6 ? 32 : cls === 5 ? 21 : 8);
+      const terrainGranularity = grain * (cls === 6 ? 12 : cls === 5 ? 9 : cls === 9 ? 7 : 4);
+      r += highlandShade * 0.70 + terrainGranularity;
+      g += highlandShade * 0.64 + terrainGranularity * 0.75;
+      b += highlandShade * 0.52 + terrainGranularity * 0.40;
+
+      if (cls === 9 || arid > 0.52 || heat > 0.55) {
+        const dune = Math.sin(lon * 42.0 + lat * 8.0 + continental * 6.0) * (0.5 + arid * 0.5);
+        r += dune * 8.0 + arid * 12.0;
+        g += dune * 4.8 + arid * 4.0;
+        b -= arid * 6.0;
+      }
+      if (cls === 10 || wet > 0.46 || veg > 0.45) {
+        const mottle = (fbm2(lon * 17.0 - 7.0, lat * 19.0 + 1.0, 4) - 0.5) * 2;
+        const fertile = clamp01(wet * 0.45 + veg * 0.42 + life * 0.60);
+        r -= fertile * (10 + 8 * mottle);
+        g += fertile * (18 + 10 * mottle);
+        b += fertile * (4 + 6 * mottle);
+      }
+      if (coast > 0.34 && water < 0.55) {
+        const beach = smoothstep(0.28, 0.88, coast) * 0.22;
+        r = lerp(r, 218, beach);
+        g = lerp(g, 194, beach);
+        b = lerp(b, 124, beach * 0.85);
+      }
+    }
+
+    if (iceType !== 0 && ice > 0.18) {
+      const crack = Math.sin(lon * 34.0 + lat * 21.0 + fine * 5.0) * Math.sin(lon * 11.0 - lat * 25.0);
+      const snowNoise = (fbm2(lon * 9.5 + 2.0, lat * 11.5 - 4.0, 3) - 0.5) * 12;
+      r += snowNoise - Math.max(0, crack) * (iceType === 1 ? 8 : 4);
+      g += snowNoise * 0.85;
+      b += snowNoise * 0.55 + Math.max(0, crack) * (iceType === 1 ? 12 : 5);
+    }
+
+    if (cloudsEnabled && cloud > 0.12) {
+      const wisp = smoothstep(0.42, 0.84, fbm2(lon * 10.0 + 2.0, lat * 4.0 + 8.0, 4));
+      const a = clamp01(cloud * wisp * 0.18);
+      r = lerp(r, 242, a);
+      g = lerp(g, 246, a);
+      b = lerp(b, 250, a);
+    }
+
+    return [Math.round(clamp(r, 0, 255)), Math.round(clamp(g, 0, 255)), Math.round(clamp(b, 0, 255))];
+  }
+
+  function addFineSemanticTexture(buf, classes, w, h, map, source, cloudsEnabled) {
+    for (let p = 0; p < map.length; p += 1) {
+      const cell = map[p];
+      const cls = classes[p];
+      const idx = p * 4;
+      const x = p % w;
+      const y = Math.floor(p / w);
+      const u = (x + 0.5) / w;
+      const v = (y + 0.5) / h;
+      const lon = u * Math.PI * 2 - Math.PI;
+      const lat = Math.PI * 0.5 - v * Math.PI;
+      const relief = clamp01(source.landRelief?.[cell] ?? source.slopeProxy?.[cell] ?? 0);
+      const coast = clamp01(source.coastProximity?.[cell] ?? 0);
+      const shelf = clamp01(source.shallowWater?.[cell] ?? 0);
+      const arid = clamp01(source.aridityProxy?.[cell] ?? 0);
+      const wet = clamp01(source.wetnessProxy?.[cell] ?? 0);
+      const ice = clamp01(source.ice?.[cell] ?? 0);
+      const iceType = Number(source.iceType?.[cell] ?? 0) | 0;
+      const waterish = cls <= 2 || cls === 8;
+      const n = (fbm2(lon * 22.0 + 31.0, lat * 24.0 - 17.0, 2) - 0.5) * 2;
+      let contrast = waterish ? (1.0 + shelf * 0.018 + coast * 0.014) : (1.0 + relief * 0.055 + arid * 0.030 + wet * 0.020);
+      if (iceType !== 0 && ice > 0.2) contrast += ice * 0.018;
+      const lift = waterish ? n * (1.2 + shelf * 2.8) : n * (2.2 + relief * 6.5 + arid * 3.8);
+      buf[idx] = Math.round(clamp((buf[idx] - 128) * contrast + 128 + lift, 0, 255));
+      buf[idx + 1] = Math.round(clamp((buf[idx + 1] - 128) * contrast + 128 + lift * 0.72, 0, 255));
+      buf[idx + 2] = Math.round(clamp((buf[idx + 2] - 128) * contrast + 128 + lift * 0.48, 0, 255));
+      if (cloudsEnabled && waterish && shelf > 0.1) {
+        buf[idx + 1] = Math.round(lerp(buf[idx + 1], 188, shelf * 0.05));
+        buf[idx + 2] = Math.round(lerp(buf[idx + 2], 218, shelf * 0.06));
+      }
+    }
+  }
+
+  function hash2(x, y) {
+    const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453123;
+    return s - Math.floor(s);
+  }
+
+  function valueNoise2(x, y) {
+    const ix = Math.floor(x);
+    const iy = Math.floor(y);
+    const fx = x - ix;
+    const fy = y - iy;
+    const ux = fx * fx * (3 - 2 * fx);
+    const uy = fy * fy * (3 - 2 * fy);
+    const a = hash2(ix, iy);
+    const b = hash2(ix + 1, iy);
+    const c = hash2(ix, iy + 1);
+    const d = hash2(ix + 1, iy + 1);
+    return lerp(lerp(a, b, ux), lerp(c, d, ux), uy);
+  }
+
+  function fbm2(x, y, octaves) {
+    let value = 0;
+    let amp = 0.5;
+    let freq = 1;
+    let norm = 0;
+    for (let i = 0; i < octaves; i += 1) {
+      value += valueNoise2(x * freq, y * freq) * amp;
+      norm += amp;
+      amp *= 0.5;
+      freq *= 2.03;
+    }
+    return norm > 0 ? value / norm : 0.5;
+  }
+
 
   function sharpenSemanticEdges(buf, classes, w, h, map, source) {
     // Coast and ice edges should read as boundaries, not smeared paint.
@@ -1557,9 +1730,11 @@ function createRenderer(canvas) {
         const ice = clamp01(source.ice?.[cell] ?? 0);
         const iceType = Number(source.iceType?.[cell] ?? 0) | 0;
         if (c <= 2 || right <= 2 || down <= 2 || coast > 0.35) {
-          buf[idx] = Math.round(lerp(buf[idx], 210, 0.14));
-          buf[idx + 1] = Math.round(lerp(buf[idx + 1], 196, 0.12));
-          buf[idx + 2] = Math.round(lerp(buf[idx + 2], 138, 0.08));
+          const isWaterEdge = c <= 2 || right <= 2 || down <= 2;
+          const edgeA = isWaterEdge ? 0.22 : 0.14;
+          buf[idx] = Math.round(lerp(buf[idx], isWaterEdge && c <= 2 ? 92 : 218, edgeA));
+          buf[idx + 1] = Math.round(lerp(buf[idx + 1], isWaterEdge && c <= 2 ? 188 : 202, edgeA * 0.92));
+          buf[idx + 2] = Math.round(lerp(buf[idx + 2], isWaterEdge && c <= 2 ? 208 : 132, edgeA * 0.72));
         }
         if (iceType !== 0 && ice > 0.28) {
           buf[idx] = Math.round(lerp(buf[idx], 242, 0.12));
@@ -1983,7 +2158,11 @@ function createRenderer(canvas) {
     return lastTextureMs;
   }
 
-  return { setRenderData, render, pick, rotate, rotatePitch, rotateLight, resetLight, resetView, getLastRenderMs, getTextureMs, updateViewport };
+  function getTextureDiagnostics() {
+    return { source: lastTextureSource, reason: lastTextureReason, resolution: lastTextureResolution };
+  }
+
+  return { setRenderData, render, pick, rotate, rotatePitch, rotateLight, resetLight, resetView, getLastRenderMs, getTextureMs, getTextureDiagnostics, updateViewport };
 }
 
 function projectVector(x, y, z, cosR, sinR, cosT, sinT) {
@@ -2255,7 +2434,7 @@ function rgb(r, g, b) {
 /* ============================================================
    Controls
    Source section: controls.js
-   Compacted for Engine v2 0.2.8.
+   Compacted for Engine v2 0.2.9.
    ============================================================ */
 
 
@@ -2438,7 +2617,7 @@ function updateBottomPanelVisibility(ui) {
 /* ============================================================
    Trends
    Source section: trends.js
-   Compacted for Engine v2 0.2.8.
+   Compacted for Engine v2 0.2.9.
    ============================================================ */
 
 const MAX_SAMPLES = 72;
@@ -2604,7 +2783,7 @@ function formatDelta(first, latest, suffix, percent = false) {
 /* ============================================================
    Diagnostics helpers
    Source section: diagnostics.js
-   Compacted for Engine v2 0.2.8.
+   Compacted for Engine v2 0.2.9.
    ============================================================ */
 
 function classifyTiming(ms, warnMs = 20, failMs = 60) {
@@ -2762,6 +2941,12 @@ function onWorkerMessage(event) {
 function redraw() {
   mainMetrics.lastRenderMs = renderer.render(currentRenderSettings());
   mainMetrics.lastTextureMs = renderer.getTextureMs ? renderer.getTextureMs() : 0;
+  if (renderer.getTextureDiagnostics) {
+    const textureDiag = renderer.getTextureDiagnostics();
+    mainMetrics.textureSource = textureDiag.source;
+    mainMetrics.textureReason = textureDiag.reason;
+    mainMetrics.textureResolution = textureDiag.resolution;
+  }
   if (lastDiagnostics) renderDiagnostics(ui, lastDiagnostics, mainMetrics);
 }
 

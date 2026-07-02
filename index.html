@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
-  <title>WSG Engine v2 Build 0.2.9 - Reference Surface Semantics</title>
+  <title>WSG Engine v2 Build 0.3.0 - Reference Overlay Compositor</title>
   <style>
 :root {
   color-scheme: dark;
@@ -197,6 +197,14 @@ body.bottom-info-collapsed .layerLegend { display: none; }
 .compact-card.selected-cell-card { margin-bottom: 0; }
 .textureHealth { font-size: 11px; color: var(--muted); }
 
+.overlayCompositorControls { border-top: 1px solid rgba(170,207,228,0.14); padding-top: 9px; display: grid; gap: 7px; }
+.overlayCompositorControls h4 { margin: 0 0 2px; color: #e7f4f8; font-size: 11.2px; text-transform: uppercase; letter-spacing: 0.45px; }
+.overlayToggleGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.overlayToggleGrid label { display: flex; align-items: center; gap: 6px; min-height: 28px; padding: 5px 7px; border: 1px solid rgba(170,207,228,0.13); border-radius: 999px; background: rgba(255,255,255,0.035); color: #cfe2e8; font-size: 11px; }
+.overlayToggleGrid input { margin: 0; accent-color: #8bd3ff; }
+.overlayToggleGrid label:hover { border-color: rgba(139,211,255,0.50); background: rgba(139,211,255,0.09); }
+
+
 
 /* Reference UI convergence overrides */
 :root { --left-w: 270px; --right-w: 330px; --header-hint: 72px; }
@@ -342,8 +350,8 @@ body.bottom-info-collapsed .bottomActionStrip .viewGroup { display: none; }
 <div class="app">
   <header class="topbar referenceHeader">
     <div class="brand projectBrand">
-      <strong id="build-label">WSG Engine v2 Build 0.2.9 - Reference Surface Semantics</strong>
-      <span id="summary-line">Reference surface semantics: F42 mesh, richer texture-first terrain classes, sharper shelves/coasts, stronger relief, validated cryosphere, and directional hydrology.</span>
+      <strong id="build-label">WSG Engine v2 Build 0.3.0 - Reference Overlay Compositor</strong>
+      <span id="summary-line">Reference overlay compositor: F42 mesh, semantic Natural Planet surface, disciplined coastline, contour, hydrology, wind-proxy, topology, warning, and intervention linework.</span>
     </div>
     <div class="topVitalDeck" aria-label="Simplified model vital signs">
       <div class="topVital atmosphere"><span class="vitalIcon">☁</span><label>Atmosphere</label><strong id="vital-temp">0 °C</strong><small>model index</small></div>
@@ -374,6 +382,18 @@ body.bottom-info-collapsed .bottomActionStrip .viewGroup { display: none; }
         <section class="layerGroup"><h4>Civilisation / Readiness</h4><button class="layer-chip" data-layer="civilisationSuitability">Civilisation suitability</button><button class="layer-chip" data-layer="settlements">Settlements</button><button class="layer-chip" data-layer="populationIndex">Population index</button><button class="layer-chip" data-layer="collapseRisk">Collapse risk</button></section>
         <section class="layerGroup"><h4>Interventions / Diagnostics</h4><button class="layer-chip" data-layer="restorationPriority">Restoration priority</button><button class="layer-chip" data-layer="recoveryPotential">Recovery potential</button><button class="layer-chip" data-layer="disturbancePressure">Disturbance pressure</button><button class="layer-chip" data-layer="recoveryCapacity">Recovery capacity</button></section>
       </div>
+      <section class="overlayCompositorControls" aria-label="Reference overlay compositor toggles">
+        <h4>Overlay compositor</h4>
+        <div class="overlayToggleGrid">
+          <label><input id="overlay-coasts" type="checkbox" checked> Coast / shelf</label>
+          <label><input id="overlay-contours" type="checkbox" checked> Contours</label>
+          <label><input id="overlay-hydrology" type="checkbox" checked> Flow paths</label>
+          <label><input id="overlay-wind" type="checkbox"> Wind proxy</label>
+          <label><input id="overlay-topology" type="checkbox"> Topology hint</label>
+          <label><input id="overlay-markers" type="checkbox" checked> Markers</label>
+        </div>
+        <p class="small">Visual-only linework. Does not mutate Worker state.</p>
+      </section>
       <details class="toolsDrawer" open>
         <summary>Terraforming tools</summary>
         <label class="small toolFallbackLabel">Fallback selector<select id="tool-select"></select></label>
@@ -517,13 +537,13 @@ body.bottom-info-collapsed .bottomActionStrip .viewGroup { display: none; }
 /* ============================================================
    Protocol constants
    Source section: message-protocol.js
-   Compacted for Engine v2 0.2.9.
+   Compacted for Engine v2 0.3.0.
    ============================================================ */
 
-const BUILD_VERSION = '0.2.9';
-const BUILD_LABEL = 'WSG Engine v2 Build 0.2.9 - Reference Surface Semantics';
+const BUILD_VERSION = '0.3.0';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.3.0 - Reference Overlay Compositor';
 const WORKER_URL_VERSION = BUILD_VERSION;
-const WORKER_URL = './simulation-worker.js?v=0.2.9';
+const WORKER_URL = './simulation-worker.js?v=0.3.0';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',
@@ -674,7 +694,8 @@ const PROBES = Object.freeze([
   { id: 'hydrology_flow_legibility', label: 'Hydrology flow legibility health check' },
   { id: 'cryosphere_consistency', label: 'Cryosphere consistency health check' },
   { id: 'cryosphere_smoke', label: 'Cryosphere smoke regression check' },
-  { id: 'f42_gate', label: 'reference UI and planet readability convergence check' }
+  { id: 'f42_gate', label: 'F42 geodesic runtime gate' },
+  { id: 'reference_overlay_compositor', label: 'Reference overlay compositor field check' }
 ]);
 
 function makeEnvelope(type, payload = {}) {
@@ -685,7 +706,7 @@ function makeEnvelope(type, payload = {}) {
 /* ============================================================
    Utility math
    Source section: util/math.js
-   Compacted for Engine v2 0.2.9.
+   Compacted for Engine v2 0.3.0.
    ============================================================ */
 
 function clamp(value, min, max) {
@@ -731,7 +752,7 @@ function finite01(value) {
 /* ============================================================
    UI references and renderers
    Source section: ui.js
-   Compacted for Engine v2 0.2.9.
+   Compacted for Engine v2 0.3.0.
    ============================================================ */
 
 
@@ -758,6 +779,12 @@ function getUi() {
     layer: byId('layer-select'),
     overlayOpacity: byId('overlay-opacity'),
     clouds: byId('cloud-toggle'),
+    overlayCoasts: byId('overlay-coasts'),
+    overlayContours: byId('overlay-contours'),
+    overlayHydrology: byId('overlay-hydrology'),
+    overlayWind: byId('overlay-wind'),
+    overlayTopology: byId('overlay-topology'),
+    overlayMarkers: byId('overlay-markers'),
     rotateLeft: byId('rotate-left'),
     rotateRight: byId('rotate-right'),
     resetView: byId('reset-view'),
@@ -1068,7 +1095,8 @@ function frameBudgetStatus(mainMetrics, data) {
   const render = Number(mainMetrics?.lastRenderMs || 0);
   const texture = Number(mainMetrics?.lastTextureMs || 0);
   const tick = Number(data?.lastWorkerTickMs || 0);
-  if (render > 40 || tick > 30) return `warning: render ${formatNum(render, 1)} ms, tick ${formatNum(tick, 1)} ms`;
+  const overlay = Number(mainMetrics?.overlayDrawMs || 0);
+  if (render > 40 || tick > 30 || overlay > 18) return `warning: render ${formatNum(render, 1)} ms, tick ${formatNum(tick, 1)} ms, overlays ${formatNum(overlay, 1)} ms`;
   if (texture > 120) return `texture rebuild ${formatNum(texture, 1)} ms; acceptable if state-driven and not hover-driven`;
   return 'within broad budget';
 }
@@ -1078,7 +1106,9 @@ function heavyOverlayStatus() {
   const mode = byId('visual-mode')?.value || '';
   if (layer === 'waterFlow' && mode === 'diagnostic') return 'diagnostic flow marks thinned';
   if (layer === 'waterFlow') return 'flow marks screen-space thinned';
-  return 'none';
+  const toggles = ['overlay-coasts','overlay-contours','overlay-hydrology','overlay-wind','overlay-topology','overlay-markers'].filter((id) => byId(id)?.checked);
+  if (toggles.length >= 5) return 'reference overlays screen-space thinned';
+  return toggles.length ? 'overlay compositor thinned' : 'none';
 }
 
 function renderDiagnostics(ui, diagnostics, mainMetrics) {
@@ -1105,6 +1135,15 @@ function renderDiagnostics(ui, diagnostics, mainMetrics) {
     <div class="metric"><span>Texture source</span><strong>${escapeHtml(mainMetrics.textureSource || 'cached semantic texture')}</strong></div>
     <div class="metric"><span>Texture reason</span><strong>${escapeHtml(mainMetrics.textureReason || 'n/a')}</strong></div>
     <div class="metric"><span>Texture resolution</span><strong>${escapeHtml(mainMetrics.textureResolution || 'n/a')}</strong></div>
+    <div class="metric"><span>Overlay compositor</span><strong>${formatNum(mainMetrics.overlayDrawMs || 0, 2)} ms</strong></div>
+    <div class="metric"><span>Overlay mark count</span><strong>${mainMetrics.overlayMarkCount || 0}</strong></div>
+    <div class="metric"><span>Coastline lines</span><strong>${mainMetrics.coastlineLineCount || 0}</strong></div>
+    <div class="metric"><span>Hydrology lines</span><strong>${mainMetrics.hydrologyLineCount || 0}</strong></div>
+    <div class="metric"><span>Topology lines</span><strong>${mainMetrics.topologyLineCount || 0}</strong></div>
+    <div class="metric"><span>Contour lines</span><strong>${mainMetrics.contourLineCount || 0}</strong></div>
+    <div class="metric"><span>Marker count</span><strong>${mainMetrics.markerCount || 0}</strong></div>
+    <div class="metric"><span>Overlay thinning</span><strong>${formatPct(mainMetrics.overlayThinningRatio || 0)}</strong></div>
+    <div class="metric"><span>Overlay warning</span><strong>${escapeHtml(mainMetrics.overlayHeavyWarning || 'none')}</strong></div>
     <div class="metric"><span>Trend draw</span><strong>${formatNum(trendState.lastDrawMs, 2)} ms</strong></div>
     <div class="metric"><span>DOM update</span><strong>${formatNum(mainMetrics.lastDomMs, 2)} ms</strong></div>
     <div class="metric"><span>Render dirty</span><strong>${String(data.renderDirty)}</strong></div>
@@ -1219,10 +1258,22 @@ function updateVisualReadouts(ui) {
     ui.modeBadge.textContent = ui.visualMode.value === 'natural' ? mode : `${mode} - ${layer}`;
   }
   if (ui.layerLegend) {
-    ui.layerLegend.textContent = layerLegendText(ui.visualMode.value, ui.layer.value, layer);
+    const overlays = overlayStatusText(ui);
+    ui.layerLegend.textContent = `${layerLegendText(ui.visualMode.value, ui.layer.value, layer)} ${overlays}`;
   }
   const overlayLabel = ui.overlayOpacity?.parentElement?.querySelector('.kpi');
   if (overlayLabel) overlayLabel.textContent = `${Math.round(Number(ui.overlayOpacity.value || 0) * 100)}%`;
+}
+
+function overlayStatusText(ui) {
+  const active = [];
+  if (ui.overlayCoasts?.checked) active.push('coast/shelf');
+  if (ui.overlayContours?.checked) active.push('contours');
+  if (ui.overlayHydrology?.checked) active.push('flow paths');
+  if (ui.overlayWind?.checked) active.push('wind-flow proxy');
+  if (ui.overlayTopology?.checked) active.push('topology hint');
+  if (ui.overlayMarkers?.checked) active.push('markers');
+  return active.length ? `Overlay compositor: ${active.join(', ')}.` : 'Overlay compositor: base surface only.';
 }
 
 function updateLayerChipActive(ui) {
@@ -1332,6 +1383,7 @@ function createRenderer(canvas) {
   let projectedCtx = null;
   let projectedSignature = '';
   let projectedDirty = true;
+  let lastOverlayMetrics = { drawMs: 0, overlayMarkCount: 0, topologyLineCount: 0, hydrologyLineCount: 0, coastlineLineCount: 0, contourLineCount: 0, markerCount: 0, thinningRatio: 0, heavyWarning: 'none' };
 
   function setRenderData(payload) {
     data = payload;
@@ -1413,12 +1465,13 @@ function createRenderer(canvas) {
       drawPlanetDisc(ctx, cx, cy, radius);
       drawCells(ctx, cx, cy, radius, 'diagnostic', layer, 1, cloudsEnabled);
       if (layer === 'waterFlow') drawWaterFlowOverlay(ctx, cx, cy, radius, 'diagnostic');
+      lastOverlayMetrics = { drawMs: 0, overlayMarkCount: 0, topologyLineCount: 0, hydrologyLineCount: layer === 'waterFlow' ? 1 : 0, coastlineLineCount: 0, contourLineCount: 0, markerCount: 0, thinningRatio: 0, heavyWarning: layer === 'waterFlow' ? 'diagnostic flow overlay thinned' : 'none' };
     } else {
       drawNaturalSurface(ctx, view, cloudsEnabled);
       if (mode === 'overlay') {
         drawCells(ctx, cx, cy, radius, 'layer', layer, overlayOpacity, cloudsEnabled);
-        if (layer === 'waterFlow') drawWaterFlowOverlay(ctx, cx, cy, radius, 'overlay');
       }
+      drawReferenceOverlayCompositor(ctx, cx, cy, radius, settings, mode, layer);
     }
 
     drawToolEffectFlash(ctx, lastProjection, radius, data?.dirtyCells);
@@ -1900,6 +1953,275 @@ function createRenderer(canvas) {
     return [v[0] / len, v[1] / len, v[2] / len];
   }
 
+  function createOverlayMetrics() {
+    return { drawMs: 0, overlayMarkCount: 0, topologyLineCount: 0, hydrologyLineCount: 0, coastlineLineCount: 0, contourLineCount: 0, markerCount: 0, thinningRatio: 0, heavyWarning: 'none' };
+  }
+
+  function drawReferenceOverlayCompositor(context, cx, cy, radius, settings, mode, layer) {
+    const start = performance.now();
+    const overlays = settings.overlays || {};
+    const metrics = createOverlayMetrics();
+    context.save();
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    if (overlays.coasts !== false) metrics.coastlineLineCount += drawCoastShelfLinework(context, cx, cy, radius);
+    if (overlays.contours !== false) metrics.contourLineCount += drawReliefContourLinework(context, radius);
+    if (overlays.hydrology !== false || layer === 'waterFlow') metrics.hydrologyLineCount += drawWaterFlowOverlay(context, cx, cy, radius, layer === 'waterFlow' ? 'overlay' : 'reference', false) || 0;
+    if (overlays.wind) metrics.markerCount += drawWindProxyOverlay(context, cx, cy, radius);
+    if (overlays.topology) metrics.topologyLineCount += drawTopologyHintOverlay(context, cx, cy, radius);
+    if (overlays.markers !== false) metrics.markerCount += drawWarningAndInterventionMarkers(context, radius);
+    metrics.hydrologyLineCount += drawSelectedFlowTrace(context, radius) || 0;
+    metrics.overlayMarkCount = metrics.coastlineLineCount + metrics.contourLineCount + metrics.hydrologyLineCount + metrics.topologyLineCount + metrics.markerCount;
+    const nominal = Math.max(1, data?.count || 1);
+    metrics.thinningRatio = clamp01(1 - metrics.overlayMarkCount / nominal);
+    metrics.drawMs = performance.now() - start;
+    metrics.heavyWarning = metrics.drawMs > 18 || metrics.overlayMarkCount > 4200 ? 'heavy overlay thinned' : 'none';
+    lastOverlayMetrics = metrics;
+    context.restore();
+  }
+
+  function drawCoastShelfLinework(context, cx, cy, radius) {
+    if (!data?.coastProximity || !lastProjection?.length) return 0;
+    const candidates = [];
+    const count = data.count || 0;
+    const stride = Math.max(1, Math.floor(count / 9000));
+    for (let i = 0; i < count; i += stride) {
+      const p = lastProjection[i];
+      if (!p || p.depth <= 0.025) continue;
+      const coast = clamp01(data.coastProximity?.[i] || 0);
+      const shelf = clamp01(data.shallowWater?.[i] || 0);
+      const water = clamp01(data.water?.[i] || 0);
+      if (coast < 0.32 && shelf < 0.36) continue;
+      candidates.push([i, coast * 0.62 + shelf * 0.30 + (water > 0.5 ? 0.06 : 0)]);
+    }
+    candidates.sort((a, b) => b[1] - a[1]);
+    const maxLines = 1450;
+    let drawn = 0;
+    context.save();
+    for (const [i, score] of candidates) {
+      if (drawn >= maxLines) break;
+      const coast = clamp01(data.coastProximity?.[i] || 0);
+      const shelf = clamp01(data.shallowWater?.[i] || 0);
+      const water = clamp01(data.water?.[i] || 0);
+      const alpha = Math.min(0.72, 0.20 + score * 0.42);
+      const isShelf = water > 0.55 && shelf > coast * 0.55;
+      context.strokeStyle = isShelf ? `rgba(116,226,236,${alpha})` : `rgba(234,226,178,${alpha})`;
+      context.lineWidth = Math.max(0.55, radius * (0.00115 + Math.max(coast, shelf) * 0.0012));
+      if (drawTriangleOutline(context, i, cx, cy, radius)) drawn += 1;
+    }
+    context.restore();
+    return drawn;
+  }
+
+  function drawReliefContourLinework(context, radius) {
+    if (!data?.elevation || !lastProjection?.length) return 0;
+    const count = data.count || 0;
+    const stride = Math.max(1, Math.floor(count / 10500));
+    const candidates = [];
+    for (let i = 0; i < count; i += stride) {
+      const p = lastProjection[i];
+      if (!p || p.depth <= 0.04) continue;
+      const water = clamp01(data.water?.[i] || 0);
+      if (water > 0.52) continue;
+      const elev = clamp01(data.elevation?.[i] || 0);
+      const relief = clamp01(data.landRelief?.[i] ?? data.slopeProxy?.[i] ?? 0);
+      const contourBand = Math.abs(((elev * 15.0 + relief * 2.0) % 1) - 0.5);
+      if (contourBand > 0.065 && relief < 0.38) continue;
+      candidates.push([i, elev * 0.42 + relief * 0.58]);
+    }
+    candidates.sort((a, b) => b[1] - a[1]);
+    const maxLines = 1200;
+    let drawn = 0;
+    context.save();
+    context.strokeStyle = 'rgba(244,236,210,0.28)';
+    context.lineWidth = Math.max(0.45, radius * 0.0011);
+    context.setLineDash([Math.max(2, radius * 0.004), Math.max(3, radius * 0.006)]);
+    for (const [i, score] of candidates) {
+      if (drawn >= maxLines) break;
+      const p = lastProjection[i];
+      if (!p) continue;
+      const relief = clamp01(data.landRelief?.[i] ?? data.slopeProxy?.[i] ?? 0);
+      const len = Math.max(3, radius * (0.006 + relief * 0.008));
+      const lon = Number(data.longitude?.[i] || 0);
+      const lat = Number(data.latitude?.[i] || 0);
+      const angle = lon * 1.7 + lat * 0.9 + score;
+      context.globalAlpha = Math.min(0.52, 0.18 + score * 0.30);
+      context.beginPath();
+      context.moveTo(p.x - Math.cos(angle) * len, p.y - Math.sin(angle) * len);
+      context.lineTo(p.x + Math.cos(angle) * len, p.y + Math.sin(angle) * len);
+      context.stroke();
+      drawn += 1;
+    }
+    context.setLineDash([]);
+    context.globalAlpha = 1;
+    context.restore();
+    return drawn;
+  }
+
+  function drawTopologyHintOverlay(context, cx, cy, radius) {
+    if (!data?.triangleX || !lastProjection?.length) return 0;
+    const count = data.count || 0;
+    const stride = Math.max(1, Math.floor(count / 900));
+    let drawn = 0;
+    context.save();
+    context.strokeStyle = 'rgba(190,220,235,0.105)';
+    context.lineWidth = Math.max(0.45, radius * 0.00085);
+    for (let i = 0; i < count; i += stride) {
+      const p = lastProjection[i];
+      if (!p || p.depth <= 0.09) continue;
+      if (drawTriangleOutline(context, i, cx, cy, radius)) drawn += 1;
+      if (drawn > 950) break;
+    }
+    context.restore();
+    return drawn;
+  }
+
+  function drawWindProxyOverlay(context, cx, cy, radius) {
+    if (!data?.latitude || !lastProjection?.length) return 0;
+    const count = data.count || 0;
+    const stride = Math.max(1, Math.floor(count / 520));
+    let drawn = 0;
+    context.save();
+    context.strokeStyle = 'rgba(142,205,244,0.32)';
+    context.fillStyle = 'rgba(142,205,244,0.42)';
+    context.lineWidth = Math.max(0.7, radius * 0.00135);
+    for (let i = 0; i < count; i += stride) {
+      const p = lastProjection[i];
+      if (!p || p.depth <= 0.16) continue;
+      const lat = Number(data.latitude[i] || 0);
+      if (Math.abs(lat) > 1.25) continue;
+      const lon = Number(data.longitude[i] || 0);
+      const belt = Math.floor((lat + Math.PI / 2) / (Math.PI / 6));
+      const direction = belt % 2 === 0 ? 1 : -1;
+      const temp = clamp01(data.temperature?.[i] || 0);
+      const humid = clamp01(data.humidity?.[i] || 0);
+      const eps = direction * (0.040 + temp * 0.018 + humid * 0.012);
+      const q = projectLatLon(lon + eps, lat + Math.sin(lon * 3) * 0.006, cx, cy, radius);
+      if (!q || q.depth <= 0.10) continue;
+      drawArrowSegment(context, p.x, p.y, q.x, q.y, Math.max(3, radius * 0.006));
+      drawn += 1;
+      if (drawn > 420) break;
+    }
+    context.restore();
+    return drawn;
+  }
+
+  function drawWarningAndInterventionMarkers(context, radius) {
+    if (!lastProjection?.length) return 0;
+    const candidates = [];
+    const count = data.count || 0;
+    const stride = Math.max(1, Math.floor(count / 12000));
+    for (let i = 0; i < count; i += stride) {
+      const p = lastProjection[i];
+      if (!p || p.depth <= 0.08) continue;
+      if (data.dirtyCells?.[i]) { candidates.push([i, 1.20, 'intervention']); continue; }
+      const heat = clamp01(data.heatStress?.[i] || 0);
+      const waterStress = clamp01(data.waterStress?.[i] || 0);
+      const extinction = clamp01(data.extinctionRisk?.[i] || 0);
+      const collapse = clamp01(data.collapseRisk?.[i] || 0);
+      const habit = clamp01(data.habitability?.[i] || 0);
+      const settlement = clamp01(data.settlements?.[i] || 0);
+      const stress = Math.max(heat, waterStress, extinction, collapse);
+      if (stress > 0.78) candidates.push([i, stress, heat >= waterStress && heat >= extinction ? 'heat' : (waterStress >= extinction ? 'waterStress' : 'risk')]);
+      else if (settlement > 0.25) candidates.push([i, settlement * 0.78, 'settlement']);
+      else if (habit > 0.82 && clamp01(data.water?.[i] || 0) < 0.75) candidates.push([i, habit * 0.52, 'opportunity']);
+    }
+    candidates.sort((a, b) => b[1] - a[1]);
+    let drawn = 0;
+    context.save();
+    for (const [i, score, type] of candidates) {
+      if (drawn >= 260) break;
+      const p = lastProjection[i];
+      if (!p || p.depth <= 0.08) continue;
+      drawMarkerGlyph(context, p.x, p.y, radius, type, score);
+      drawn += 1;
+    }
+    context.restore();
+    return drawn;
+  }
+
+  function drawTriangleOutline(context, i, cx, cy, radius) {
+    const cosR = Math.cos(rotation);
+    const sinR = Math.sin(rotation);
+    const cosT = Math.cos(tilt);
+    const sinT = Math.sin(tilt);
+    const p0 = projectVector(data.triangleX[i * 3], data.triangleY[i * 3], data.triangleZ[i * 3], cosR, sinR, cosT, sinT);
+    const p1 = projectVector(data.triangleX[i * 3 + 1], data.triangleY[i * 3 + 1], data.triangleZ[i * 3 + 1], cosR, sinR, cosT, sinT);
+    const p2 = projectVector(data.triangleX[i * 3 + 2], data.triangleY[i * 3 + 2], data.triangleZ[i * 3 + 2], cosR, sinR, cosT, sinT);
+    if (p0.depth < -0.05 || p1.depth < -0.05 || p2.depth < -0.05) return false;
+    context.beginPath();
+    context.moveTo(cx + p0.x * radius, cy + p0.y * radius);
+    context.lineTo(cx + p1.x * radius, cy + p1.y * radius);
+    context.lineTo(cx + p2.x * radius, cy + p2.y * radius);
+    context.closePath();
+    context.stroke();
+    return true;
+  }
+
+  function projectLatLon(lon, lat, cx, cy, radius) {
+    const x0 = Math.cos(lat) * Math.cos(lon);
+    const y0 = Math.sin(lat);
+    const z0 = Math.cos(lat) * Math.sin(lon);
+    const c = projectVector(x0, y0, z0, Math.cos(rotation), Math.sin(rotation), Math.cos(tilt), Math.sin(tilt));
+    if (c.depth <= -0.04) return null;
+    return { x: cx + c.x * radius, y: cy + c.y * radius, depth: c.depth };
+  }
+
+  function drawArrowSegment(context, sx, sy, ex, ey, head) {
+    const dx = ex - sx;
+    const dy = ey - sy;
+    const len = Math.hypot(dx, dy);
+    if (!Number.isFinite(len) || len < head * 0.8) return;
+    const ux = dx / len;
+    const uy = dy / len;
+    context.beginPath();
+    context.moveTo(sx, sy);
+    context.lineTo(ex, ey);
+    context.stroke();
+    context.beginPath();
+    context.moveTo(ex, ey);
+    context.lineTo(ex - ux * head - uy * head * 0.46, ey - uy * head + ux * head * 0.46);
+    context.lineTo(ex - ux * head + uy * head * 0.46, ey - uy * head - ux * head * 0.46);
+    context.closePath();
+    context.fill();
+  }
+
+  function drawMarkerGlyph(context, x, y, radius, type, score) {
+    const r = Math.max(3.2, radius * (0.005 + clamp01(score) * 0.006));
+    if (type === 'intervention') {
+      context.strokeStyle = 'rgba(255,226,122,0.72)';
+      context.fillStyle = 'rgba(255,226,122,0.18)';
+      context.lineWidth = Math.max(1, radius * 0.0022);
+      context.beginPath(); context.arc(x, y, r * 1.18, 0, Math.PI * 2); context.fill(); context.stroke();
+      return;
+    }
+    if (type === 'settlement') {
+      context.fillStyle = 'rgba(202,166,255,0.58)';
+      context.strokeStyle = 'rgba(231,213,255,0.68)';
+      context.lineWidth = Math.max(0.8, radius * 0.0018);
+      context.strokeRect(x - r * 0.65, y - r * 0.65, r * 1.3, r * 1.3);
+      context.fillRect(x - r * 0.42, y - r * 0.42, r * 0.84, r * 0.84);
+      return;
+    }
+    if (type === 'opportunity') {
+      context.strokeStyle = 'rgba(142,245,154,0.58)';
+      context.lineWidth = Math.max(0.9, radius * 0.0018);
+      context.beginPath(); context.arc(x, y, r, 0, Math.PI * 2); context.stroke();
+      context.beginPath(); context.moveTo(x - r * 0.55, y); context.lineTo(x + r * 0.55, y); context.moveTo(x, y - r * 0.55); context.lineTo(x, y + r * 0.55); context.stroke();
+      return;
+    }
+    context.fillStyle = type === 'heat' ? 'rgba(255,126,70,0.62)' : (type === 'waterStress' ? 'rgba(98,198,255,0.62)' : 'rgba(255,210,84,0.62)');
+    context.strokeStyle = 'rgba(255,244,205,0.48)';
+    context.lineWidth = Math.max(0.8, radius * 0.0016);
+    context.beginPath();
+    context.moveTo(x, y - r);
+    context.lineTo(x + r * 0.88, y + r * 0.70);
+    context.lineTo(x - r * 0.88, y + r * 0.70);
+    context.closePath();
+    context.fill();
+    context.stroke();
+  }
+
   function drawCells(context, cx, cy, radius, pass, layer, alpha, cloudsEnabled) {
     context.save();
     context.globalAlpha = alpha;
@@ -1946,8 +2268,8 @@ function createRenderer(canvas) {
   }
 
 
-  function drawWaterFlowOverlay(context, cx, cy, radius, densityMode) {
-    if (!data?.downstreamCell || !lastProjection?.length) return;
+  function drawWaterFlowOverlay(context, cx, cy, radius, densityMode, includeSelectedTrace = true) {
+    if (!data?.downstreamCell || !lastProjection?.length) return 0;
     const diagnostic = densityMode === 'diagnostic';
     const maxMarks = diagnostic ? 1600 : 760;
     const minMag = diagnostic ? 0.025 : 0.070;
@@ -2024,8 +2346,9 @@ function createRenderer(canvas) {
       context.fill();
       drawn += 1;
     }
-    drawSelectedFlowTrace(context, radius);
+    if (includeSelectedTrace) drawSelectedFlowTrace(context, radius);
     context.restore();
+    return drawn;
   }
 
   function flowStroke(cls, alpha, acc) {
@@ -2071,9 +2394,9 @@ function createRenderer(canvas) {
 
   function drawSelectedFlowTrace(context, radius) {
     const selected = data.selectedCell;
-    if (selected < 0 || !data.downstreamCell) return;
+    if (selected < 0 || !data.downstreamCell) return 0;
     const start = lastProjection[selected];
-    if (!start || start.depth <= 0.03) return;
+    if (!start || start.depth <= 0.03) return 0;
     context.strokeStyle = 'rgba(255,255,180,0.82)';
     context.fillStyle = 'rgba(255,255,180,0.95)';
     context.lineWidth = Math.max(1.5, radius * 0.005);
@@ -2102,6 +2425,7 @@ function createRenderer(canvas) {
       context.arc(end.x, end.y, Math.max(4, radius * 0.009), 0, Math.PI * 2);
       context.fill();
     }
+    return drawn > 0 ? drawn : 0;
   }
 
   function drawToolEffectFlash(context, projection, radius, dirtyCells) {
@@ -2162,7 +2486,11 @@ function createRenderer(canvas) {
     return { source: lastTextureSource, reason: lastTextureReason, resolution: lastTextureResolution };
   }
 
-  return { setRenderData, render, pick, rotate, rotatePitch, rotateLight, resetLight, resetView, getLastRenderMs, getTextureMs, getTextureDiagnostics, updateViewport };
+  function getOverlayDiagnostics() {
+    return { ...lastOverlayMetrics };
+  }
+
+  return { setRenderData, render, pick, rotate, rotatePitch, rotateLight, resetLight, resetView, getLastRenderMs, getTextureMs, getTextureDiagnostics, getOverlayDiagnostics, updateViewport };
 }
 
 function projectVector(x, y, z, cosR, sinR, cosT, sinT) {
@@ -2434,7 +2762,7 @@ function rgb(r, g, b) {
 /* ============================================================
    Controls
    Source section: controls.js
-   Compacted for Engine v2 0.2.9.
+   Compacted for Engine v2 0.3.0.
    ============================================================ */
 
 
@@ -2474,10 +2802,13 @@ function bindControls(ui, actions) {
     });
   }
   ui.clouds.addEventListener('change', () => actions.redraw());
+  [ui.overlayCoasts, ui.overlayContours, ui.overlayHydrology, ui.overlayWind, ui.overlayTopology, ui.overlayMarkers].filter(Boolean).forEach((input) => {
+    input.addEventListener('change', () => { updateVisualReadouts(ui); actions.redraw(); });
+  });
   ui.toolRadius.addEventListener('input', () => { updateToolUiReadouts(ui); actions.redraw(); });
   ui.toolStrength.addEventListener('input', () => updateToolUiReadouts(ui));
-  ui.rotateLeft.addEventListener('click', () => { actions.rotate(-0.22); actions.redraw(); });
-  ui.rotateRight.addEventListener('click', () => { actions.rotate(0.22); actions.redraw(); });
+  ui.rotateLeft.addEventListener('click', () => { actions.rotate(0.22); actions.redraw(); });
+  ui.rotateRight.addEventListener('click', () => { actions.rotate(-0.22); actions.redraw(); });
   if (ui.tiltUp) ui.tiltUp.addEventListener('click', () => { actions.rotatePitch(0.16); actions.redraw(); });
   if (ui.tiltDown) ui.tiltDown.addEventListener('click', () => { actions.rotatePitch(-0.16); actions.redraw(); });
   if (ui.lightLeft) ui.lightLeft.addEventListener('click', () => { actions.rotateLight(-0.28); actions.redraw(); });
@@ -2512,7 +2843,7 @@ function bindControls(ui, actions) {
       moved = moved || Math.abs(event.clientX - downX) + Math.abs(event.clientY - downY) > 6;
       const dx = event.clientX - lastX;
       const dy = event.clientY - (dragStateLastY || event.clientY);
-      if (Math.abs(dx) > 1) actions.rotate(dx * 0.006);
+      if (Math.abs(dx) > 1) actions.rotate(-dx * 0.006);
       if (Math.abs(dy) > 1) actions.rotatePitch(-dy * 0.005);
       if (Math.abs(dx) > 1 || Math.abs(dy) > 1) actions.redraw();
       lastX = event.clientX;
@@ -2617,7 +2948,7 @@ function updateBottomPanelVisibility(ui) {
 /* ============================================================
    Trends
    Source section: trends.js
-   Compacted for Engine v2 0.2.9.
+   Compacted for Engine v2 0.3.0.
    ============================================================ */
 
 const MAX_SAMPLES = 72;
@@ -2783,7 +3114,7 @@ function formatDelta(first, latest, suffix, percent = false) {
 /* ============================================================
    Diagnostics helpers
    Source section: diagnostics.js
-   Compacted for Engine v2 0.2.9.
+   Compacted for Engine v2 0.3.0.
    ============================================================ */
 
 function classifyTiming(ms, warnMs = 20, failMs = 60) {
@@ -2823,7 +3154,7 @@ let hoverCell = -1;
 let lastSummary = null;
 let lastDiagnostics = null;
 let hoverRedrawQueued = false;
-const mainMetrics = { lastRenderMs: 0, lastDomMs: 0, lastTextureMs: 0 };
+const mainMetrics = { lastRenderMs: 0, lastDomMs: 0, lastTextureMs: 0, overlayDrawMs: 0, overlayMarkCount: 0, topologyLineCount: 0, hydrologyLineCount: 0, coastlineLineCount: 0, contourLineCount: 0, markerCount: 0, overlayThinningRatio: 0 };
 
 /* ============================================================
    Worker lifecycle
@@ -2947,6 +3278,18 @@ function redraw() {
     mainMetrics.textureReason = textureDiag.reason;
     mainMetrics.textureResolution = textureDiag.resolution;
   }
+  if (renderer.getOverlayDiagnostics) {
+    const overlayDiag = renderer.getOverlayDiagnostics();
+    mainMetrics.overlayDrawMs = overlayDiag.drawMs || 0;
+    mainMetrics.overlayMarkCount = overlayDiag.overlayMarkCount || 0;
+    mainMetrics.topologyLineCount = overlayDiag.topologyLineCount || 0;
+    mainMetrics.hydrologyLineCount = overlayDiag.hydrologyLineCount || 0;
+    mainMetrics.coastlineLineCount = overlayDiag.coastlineLineCount || 0;
+    mainMetrics.contourLineCount = overlayDiag.contourLineCount || 0;
+    mainMetrics.markerCount = overlayDiag.markerCount || 0;
+    mainMetrics.overlayThinningRatio = overlayDiag.thinningRatio || 0;
+    mainMetrics.overlayHeavyWarning = overlayDiag.heavyWarning || 'none';
+  }
   if (lastDiagnostics) renderDiagnostics(ui, lastDiagnostics, mainMetrics);
 }
 
@@ -2960,7 +3303,15 @@ function currentRenderSettings() {
     clouds: ui.clouds.checked,
     selectedCell,
     hoverCell,
-    toolRadius: Number(ui.toolRadius.value || 1)
+    toolRadius: Number(ui.toolRadius.value || 1),
+    overlays: {
+      coasts: ui.overlayCoasts?.checked !== false,
+      contours: ui.overlayContours?.checked !== false,
+      hydrology: ui.overlayHydrology?.checked !== false,
+      wind: !!ui.overlayWind?.checked,
+      topology: !!ui.overlayTopology?.checked,
+      markers: ui.overlayMarkers?.checked !== false
+    }
   };
 }
 

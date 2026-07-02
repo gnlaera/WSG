@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
-  <title>WSG Engine v2 Build 0.2.7 - Reference UI and Planet Readability Convergence</title>
+  <title>WSG Engine v2 Build 0.2.8 - F42 Mesh Resolution Uplift</title>
   <style>
 :root {
   color-scheme: dark;
@@ -303,6 +303,22 @@ body.topbar-compact .bottomActionStrip .viewGroup { display: none; }
 body.topbar-compact .bottomActionStrip { grid-template-columns: 1fr auto; max-height: 78px; }
 body.bottom-info-collapsed .bottomActionStrip .viewGroup { display: none; }
 
+/* Pane minimise render hotfix: hidden grid items must not make the planet auto-place into a zero-width collapsed side column. */
+@media (min-width: 1181px) {
+  .main.app-shell > .toolPanel { grid-column: 1; grid-row: 1; }
+  .main.app-shell > .planet-column { grid-column: 2; grid-row: 1; }
+  .main.app-shell > .feedbackPanel { grid-column: 3; grid-row: 1; }
+}
+@media (max-width: 1180px) {
+  .main.app-shell > .toolPanel,
+  .main.app-shell > .planet-column,
+  .main.app-shell > .feedbackPanel { grid-column: auto; grid-row: auto; }
+  body.left-collapsed .main.app-shell > .planet-column { grid-column: 1; grid-row: 1; }
+  body.left-collapsed.right-collapsed .main.app-shell { grid-template-rows: minmax(520px, calc(100vh - 230px)); }
+  body.left-collapsed.right-collapsed .main.app-shell > .planet-column { min-height: max(520px, calc(100vh - 230px)); }
+  body.left-collapsed.right-collapsed .planetStage { min-height: 520px; }
+}
+
 @media (max-width: 1180px) {
   html, body { overflow: auto; }
   .app { min-height: 100%; height: auto; }
@@ -326,8 +342,8 @@ body.bottom-info-collapsed .bottomActionStrip .viewGroup { display: none; }
 <div class="app">
   <header class="topbar referenceHeader">
     <div class="brand projectBrand">
-      <strong id="build-label">WSG Engine v2 Build 0.2.7 - Reference UI and Planet Readability Convergence</strong>
-      <span id="summary-line">Reference UI convergence: grouped layers, F34 mesh, Worker-owned state, directional hydrology, and readable Natural Planet surface.</span>
+      <strong id="build-label">WSG Engine v2 Build 0.2.8 - F42 Mesh Resolution Uplift</strong>
+      <span id="summary-line">Reference UI convergence: grouped layers, F42 mesh, Worker-owned state, directional hydrology, and readable Natural Planet surface.</span>
     </div>
     <div class="topVitalDeck" aria-label="Simplified model vital signs">
       <div class="topVital atmosphere"><span class="vitalIcon">☁</span><label>Atmosphere</label><strong id="vital-temp">0 °C</strong><small>model index</small></div>
@@ -339,7 +355,7 @@ body.bottom-info-collapsed .bottomActionStrip .viewGroup { display: none; }
     <div class="headerStatusCluster">
       <div class="status-pill">Year <span id="vital-year">0</span></div>
       <div class="status-pill">Tick <span id="vital-tick">0</span></div>
-      <div class="status-pill meshBadge" title="Active mesh"><span id="vital-mesh">F34</span></div>
+      <div class="status-pill meshBadge" title="Active mesh"><span id="vital-mesh">F42</span></div>
       <div class="status-pill">Worker: <span id="worker-status">initialising</span></div>
       <button id="toggle-topbar" type="button" title="Compact or expand controls">Controls</button>
       <button id="toggle-diagnostics" class="toggle-button diagnostics-access" type="button" title="Optional performance and health diagnostics">Diagnostics</button>
@@ -489,7 +505,7 @@ body.bottom-info-collapsed .bottomActionStrip .viewGroup { display: none; }
       <button id="light-left" type="button">Light ◀</button><button id="light-right" type="button">Light ▶</button><button id="reset-light" type="button">Reset Light</button>
       <button id="reset-layout" type="button">Reset Layout</button><button id="toggle-bottom-info" type="button">Hide Info</button><button id="toggle-trends" class="toggle-button" type="button">Open Trends</button>
     </div>
-    <span class="bottomMeshStatus">Mesh: <span id="mesh-status">F34 High Resolution - 23,120 triangle faces</span></span>
+    <span class="bottomMeshStatus">Mesh: <span id="mesh-status">F42 Very High Resolution - 35,280 triangle faces</span></span>
   </footer>
 </div>
 
@@ -501,13 +517,13 @@ body.bottom-info-collapsed .bottomActionStrip .viewGroup { display: none; }
 /* ============================================================
    Protocol constants
    Source section: message-protocol.js
-   Compacted for Engine v2 0.2.7.
+   Compacted for Engine v2 0.2.8.
    ============================================================ */
 
-const BUILD_VERSION = '0.2.7';
-const BUILD_LABEL = 'WSG Engine v2 Build 0.2.7 - Reference UI and Planet Readability Convergence';
+const BUILD_VERSION = '0.2.8';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.2.8 - F42 Mesh Resolution Uplift';
 const WORKER_URL_VERSION = BUILD_VERSION;
-const WORKER_URL = './simulation-worker.js?v=0.2.7';
+const WORKER_URL = './simulation-worker.js?v=0.2.8';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',
@@ -563,7 +579,7 @@ const ARCHETYPES = Object.freeze([
 
 
 const MESH_QUALITY_OPTIONS = Object.freeze([
-  { id: 'f34', label: 'F34 High Resolution - 23,120 triangle faces', frequency: 34, targetFaces: 23120, default: true }
+  { id: 'f42', label: 'F42 Very High Resolution - 35,280 triangle faces', frequency: 42, targetFaces: 35280, default: true }
 ]);
 
 function meshQualityProfile(id) {
@@ -658,7 +674,7 @@ const PROBES = Object.freeze([
   { id: 'hydrology_flow_legibility', label: 'Hydrology flow legibility health check' },
   { id: 'cryosphere_consistency', label: 'Cryosphere consistency health check' },
   { id: 'cryosphere_smoke', label: 'Cryosphere smoke regression check' },
-  { id: 'f34_gate', label: 'reference UI and planet readability convergence check' }
+  { id: 'f42_gate', label: 'reference UI and planet readability convergence check' }
 ]);
 
 function makeEnvelope(type, payload = {}) {
@@ -669,7 +685,7 @@ function makeEnvelope(type, payload = {}) {
 /* ============================================================
    Utility math
    Source section: util/math.js
-   Compacted for Engine v2 0.2.7.
+   Compacted for Engine v2 0.2.8.
    ============================================================ */
 
 function clamp(value, min, max) {
@@ -715,7 +731,7 @@ function finite01(value) {
 /* ============================================================
    UI references and renderers
    Source section: ui.js
-   Compacted for Engine v2 0.2.7.
+   Compacted for Engine v2 0.2.8.
    ============================================================ */
 
 
@@ -811,7 +827,7 @@ function initialiseUi(ui) {
   ui.buildLabel.textContent = BUILD_LABEL;
   fillSelect(ui.template, TEMPLATES);
   fillSelect(ui.archetype, ARCHETYPES);
-  if (ui.meshQuality) { fillSelect(ui.meshQuality, MESH_QUALITY_OPTIONS); ui.meshQuality.value = 'f34'; }
+  if (ui.meshQuality) { fillSelect(ui.meshQuality, MESH_QUALITY_OPTIONS); ui.meshQuality.value = 'f42'; }
   if (ui.meshStatus) ui.meshStatus.textContent = MESH_QUALITY_OPTIONS[0].label;
   fillSelect(ui.visualMode, VISUAL_MODES);
   fillSelect(ui.layer, LAYERS);
@@ -829,7 +845,7 @@ function initialiseUi(ui) {
 function renderSummary(ui, summary) {
   const warnings = summary.warnings && summary.warnings.length ? summary.warnings : ['None'];
   if (ui.workerStatus && ui.workerStatus.textContent === 'initialising') ui.workerStatus.textContent = summary.diagnostics?.workerStatus || 'READY';
-  ui.summaryLine.textContent = `${summary.template} | ${summary.archetype} | F34 High Resolution | year ${summary.year} | cells ${summary.cellCount}`;
+  ui.summaryLine.textContent = `${summary.template} | ${summary.archetype} | F42 Very High Resolution | year ${summary.year} | cells ${summary.cellCount}`;
   setTextIfNode(ui.vitalYear, summary.year);
   setTextIfNode(ui.vitalTick, summary.stepCount ?? 0);
   const atmosphereIndex = clamp01(1 - Math.abs((summary.averageTemperatureC || 0) - 12) / 55 + (summary.cloudMean || 0) * 0.08);
@@ -844,11 +860,11 @@ function renderSummary(ui, summary) {
   setTextIfNode(ui.vitalLife, formatPct(biosphereIndex));
   setTextIfNode(ui.vitalSettlement, formatPct(readinessIndex));
   setTextIfNode(ui.vitalCollapse, formatNum(summary.collapseRiskMean, 3));
-  setTextIfNode(ui.vitalMesh, `F34 / ${summary.cellCount || 0}`);
-  if (ui.meshStatus) ui.meshStatus.textContent = `F34 High Resolution - ${summary.cellCount || 0} triangle faces`;
+  setTextIfNode(ui.vitalMesh, `F42 / ${summary.cellCount || 0}`);
+  if (ui.meshStatus) ui.meshStatus.textContent = `F42 Very High Resolution - ${summary.cellCount || 0} triangle faces`;
   ui.stats.innerHTML = `
     <div class="metric"><span>Year</span><strong>${summary.year}</strong></div>
-    <div class="metric"><span>Mesh</span><strong>F34 High Resolution | ${summary.cellCount} cells</strong></div>
+    <div class="metric"><span>Mesh</span><strong>F42 Very High Resolution | ${summary.cellCount} cells</strong></div>
     <div class="metric"><span>Average temperature</span><strong>${formatNum(summary.averageTemperatureC, 1)} °C</strong></div>
     <div class="metric"><span>Water share</span><strong>${formatPct(summary.waterShare)}</strong></div>
     <div class="metric"><span>Ice share</span><strong>${formatPct(summary.iceShare)}</strong></div>
@@ -1072,7 +1088,7 @@ function renderDiagnostics(ui, diagnostics, mainMetrics) {
     <div class="metric"><span>Worker build version</span><strong>${escapeHtml(data.workerBuildVersion || 'unknown')}</strong></div>
     <div class="metric"><span>Worker URL version</span><strong>${WORKER_URL_VERSION}</strong></div>
     <div class="metric"><span>Version match</span><strong>${data.workerBuildVersion === BUILD_VERSION && WORKER_URL_VERSION === BUILD_VERSION ? 'yes' : 'no'}</strong></div>
-    <div class="metric"><span>F34 gate</span><strong>${data.meshFrequency === 34 && data.cellCount === 23120 ? 'pass' : 'fail'}</strong></div>
+    <div class="metric"><span>F42 gate</span><strong>${data.meshFrequency === 42 && data.cellCount === 35280 ? 'pass' : 'fail'}</strong></div>
     <div class="metric"><span>Array shape</span><strong>${escapeHtml(data.arrayShapeStatus || 'unchecked')}</strong></div>
     <div class="metric"><span>Frame budget</span><strong>${escapeHtml(frameBudgetStatus(mainMetrics, data))}</strong></div>
     <div class="metric"><span>Heavy overlay</span><strong>${escapeHtml(heavyOverlayStatus())}</strong></div>
@@ -2239,7 +2255,7 @@ function rgb(r, g, b) {
 /* ============================================================
    Controls
    Source section: controls.js
-   Compacted for Engine v2 0.2.7.
+   Compacted for Engine v2 0.2.8.
    ============================================================ */
 
 
@@ -2254,7 +2270,7 @@ function bindControls(ui, actions) {
   ui.archetype.addEventListener('change', () => actions.command(COMMANDS.SET_ARCHETYPE, { archetype: ui.archetype.value }));
   if (ui.meshQuality) ui.meshQuality.addEventListener('change', () => {
     actions.command(COMMANDS.GENERATE, collectGenerationOptions(ui));
-    actions.addEvent?.(`F34 mesh is fixed; planet regenerated deliberately.`);
+    actions.addEvent?.(`F42 mesh is fixed; planet regenerated deliberately.`);
   });
   ui.applyTool.addEventListener('click', () => actions.applyToolToSelected());
   if (ui.runProbe) ui.runProbe.addEventListener('click', () => actions.command(COMMANDS.RUN_PROBE, { probeId: ui.probeSelect.value }));
@@ -2292,10 +2308,10 @@ function bindControls(ui, actions) {
   if (ui.resetLayout) ui.resetLayout.addEventListener('click', () => resetLayout(ui, actions));
   if (ui.toggleTopbar) ui.toggleTopbar.addEventListener('click', () => toggleBodyClass(ui.toggleTopbar, 'topbar-compact', 'Expand Controls', 'Compact Controls', actions));
   if (ui.toggleBottomInfo) ui.toggleBottomInfo.addEventListener('click', () => toggleBodyClass(ui.toggleBottomInfo, 'bottom-info-collapsed', 'Show Info', 'Hide Info', actions));
-  if (ui.collapseLeft) ui.collapseLeft.addEventListener('click', () => { document.body.classList.add('left-collapsed'); actions.redraw(); });
-  if (ui.restoreLeft) ui.restoreLeft.addEventListener('click', () => { document.body.classList.remove('left-collapsed'); actions.redraw(); });
-  if (ui.collapseRight) ui.collapseRight.addEventListener('click', () => { document.body.classList.add('right-collapsed'); actions.redraw(); });
-  if (ui.restoreRight) ui.restoreRight.addEventListener('click', () => { document.body.classList.remove('right-collapsed'); actions.redraw(); });
+  if (ui.collapseLeft) ui.collapseLeft.addEventListener('click', () => { document.body.classList.add('left-collapsed'); redrawAfterLayoutChange(actions); });
+  if (ui.restoreLeft) ui.restoreLeft.addEventListener('click', () => { document.body.classList.remove('left-collapsed'); redrawAfterLayoutChange(actions); });
+  if (ui.collapseRight) ui.collapseRight.addEventListener('click', () => { document.body.classList.add('right-collapsed'); redrawAfterLayoutChange(actions); });
+  if (ui.restoreRight) ui.restoreRight.addEventListener('click', () => { document.body.classList.remove('right-collapsed'); redrawAfterLayoutChange(actions); });
 
   let dragging = false;
   let lastX = 0;
@@ -2339,7 +2355,7 @@ function collectGenerationOptions(ui) {
     seed: ui.seed.value || 'ENGINE-V2-001',
     template: ui.template.value,
     archetype: ui.archetype.value,
-    meshQuality: 'f34'
+    meshQuality: 'f42'
   };
 }
 
@@ -2357,6 +2373,16 @@ function bindPanelToggles(ui) {
   bindSimplePanelToggle(ui.toggleDiagnostics, ui.diagnosticsCard, 'Diagnostics');
 }
 
+function redrawAfterLayoutChange(actions) {
+  if (!actions || typeof actions.redraw !== 'function') return;
+  actions.redraw();
+  requestAnimationFrame(() => {
+    actions.redraw();
+    requestAnimationFrame(() => actions.redraw());
+  });
+  setTimeout(() => actions.redraw(), 180);
+}
+
 function resetLayout(ui, actions) {
   document.body.classList.remove('left-collapsed', 'right-collapsed', 'topbar-compact', 'bottom-info-collapsed');
   if (ui.toggleTopbar) ui.toggleTopbar.textContent = 'Compact Controls';
@@ -2372,14 +2398,14 @@ function resetLayout(ui, actions) {
   if (ui.toggleTrends) ui.toggleTrends.textContent = 'Open Trends';
   actions.resetView();
   actions.resetLight();
-  actions.redraw();
+  redrawAfterLayoutChange(actions);
 }
 
 function toggleBodyClass(button, className, onText, offText, actions) {
   const on = !document.body.classList.contains(className);
   document.body.classList.toggle(className, on);
   button.textContent = on ? onText : offText;
-  actions.redraw();
+  redrawAfterLayoutChange(actions);
 }
 
 function bindSimplePanelToggle(button, panel, label) {
@@ -2412,7 +2438,7 @@ function updateBottomPanelVisibility(ui) {
 /* ============================================================
    Trends
    Source section: trends.js
-   Compacted for Engine v2 0.2.7.
+   Compacted for Engine v2 0.2.8.
    ============================================================ */
 
 const MAX_SAMPLES = 72;
@@ -2578,7 +2604,7 @@ function formatDelta(first, latest, suffix, percent = false) {
 /* ============================================================
    Diagnostics helpers
    Source section: diagnostics.js
-   Compacted for Engine v2 0.2.7.
+   Compacted for Engine v2 0.2.8.
    ============================================================ */
 
 function classifyTiming(ms, warnMs = 20, failMs = 60) {

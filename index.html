@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
-  <title>WSG Engine v2 Build 0.2.5 - Cryosphere Consistency Hotfix</title>
+  <title>WSG Engine v2 Build 0.2.5.1 - Worker Cache-Bust Hotfix</title>
   <style>
 :root {
   color-scheme: dark;
@@ -101,6 +101,8 @@ button:disabled, button:disabled:hover { cursor: not-allowed; opacity: 0.48; bac
 .opacityControl { display: flex !important; align-items: center; gap: 6px; white-space: nowrap; flex: 0 1 auto; }
 .opacityControl input { width: 72px; }
 .status-pill { padding: 7px 10px; border: 1px solid var(--line); border-radius: 999px; background: rgba(0,0,0,0.22); white-space: nowrap; color: var(--text); }
+.version-warning { border-color: rgba(255,139,139,0.72); background: rgba(255,139,139,0.14); color: var(--bad); font-weight: 700; }
+.version-warning.hidden { display: none; }
 .toggle-button { padding: 6px 8px; }
 .diagnostics-access { opacity: 0.72; font-size: 12px; padding-inline: 7px; }
 .diagnostics-access:hover { opacity: 1; }
@@ -218,8 +220,8 @@ body.bottom-info-collapsed .layerLegend { display: none; }
 <div class="app">
   <header class="topbar">
     <div class="brand">
-      <strong id="build-label">WSG Engine v2 Build 0.2.5 - Cryosphere Consistency Hotfix</strong>
-      <span id="summary-line">Cryosphere-consistent high-resolution planet with temperature-gated ice, preserved hydrology-flow legibility, and clean player shell.</span>
+      <strong id="build-label">WSG Engine v2 Build 0.2.5.1 - Worker Cache-Bust Hotfix</strong>
+      <span id="summary-line">Cryosphere-consistent high-resolution planet with cache-busted Worker loading, temperature-gated ice, preserved hydrology-flow legibility, and clean player shell.</span>
     </div>
     <label class="small headerTemplateControl" title="World template">
       <span>Template</span>
@@ -258,6 +260,7 @@ body.bottom-info-collapsed .layerLegend { display: none; }
     <button id="toggle-trends" class="toggle-button" type="button">Open Trends</button>
     <button id="toggle-diagnostics" class="toggle-button diagnostics-access" type="button" title="Optional performance and health diagnostics">Diagnostics</button>
     <div class="status-pill">Worker: <span id="worker-status">initialising</span></div>
+    <div id="version-warning" class="status-pill version-warning hidden">Worker version mismatch. Hard refresh or redeploy both files.</div>
   </header>
 
   <main class="main app-shell">
@@ -379,7 +382,7 @@ body.bottom-info-collapsed .layerLegend { display: none; }
   </section>
 
   <footer class="footer">
-    <span>Engine v2 hydrology flow legibility build. Two files only: index.html and simulation-worker.js. Canvas 2D renderer; Worker-owned mesh, semantic surface arrays, tools, validation, and render data.</span>
+    <span>Engine v2 cryosphere consistency and cache-busted Worker build. Two files only: index.html and simulation-worker.js. Canvas 2D renderer; Worker-owned mesh, semantic surface arrays, tools, validation, and render data.</span>
     <span>Two-file Worker architecture</span>
   </footer>
 </div>
@@ -395,7 +398,10 @@ body.bottom-info-collapsed .layerLegend { display: none; }
    Compacted for Engine v2 0.2.1.
    ============================================================ */
 
-const BUILD_LABEL = 'WSG Engine v2 Build 0.2.5 - Cryosphere Consistency Hotfix';
+const BUILD_VERSION = '0.2.5.1';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.2.5.1 - Worker Cache-Bust Hotfix';
+const WORKER_URL_VERSION = BUILD_VERSION;
+const WORKER_URL = './simulation-worker.js?v=0.2.5.1';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',
@@ -684,7 +690,9 @@ function getUi() {
     vitalSettlement: byId('vital-settlement'),
     vitalCollapse: byId('vital-collapse'),
     vitalMesh: byId('vital-mesh'),
-    layerLegend: byId('layer-legend')
+    layerLegend: byId('layer-legend'),
+    buildLabel: byId('build-label'),
+    versionWarning: byId('version-warning')
   };
 }
 
@@ -904,9 +912,25 @@ function renderSelected(ui, selected) {
   `;
 }
 
+function showVersionWarning(ui, versionOk, workerBuildVersion, workerBuildLabel) {
+  if (!ui?.versionWarning) return;
+  if (versionOk) {
+    ui.versionWarning.classList.add('hidden');
+    ui.versionWarning.textContent = '';
+    return;
+  }
+  ui.versionWarning.classList.remove('hidden');
+  ui.versionWarning.textContent = `Worker version mismatch. Hard refresh or redeploy both files. HTML ${BUILD_VERSION}; Worker ${workerBuildVersion || 'unknown'}.`;
+  if (ui.summaryLine) ui.summaryLine.textContent = `Worker version mismatch. HTML ${BUILD_VERSION}; Worker ${workerBuildVersion || 'unknown'} (${workerBuildLabel || 'unknown label'}).`;
+}
+
 function renderDiagnostics(ui, diagnostics, mainMetrics) {
   const data = diagnostics || {};
   ui.diagnostics.innerHTML = `
+    <div class="metric"><span>HTML build version</span><strong>${BUILD_VERSION}</strong></div>
+    <div class="metric"><span>Worker build version</span><strong>${escapeHtml(data.workerBuildVersion || 'unknown')}</strong></div>
+    <div class="metric"><span>Worker URL version</span><strong>${WORKER_URL_VERSION}</strong></div>
+    <div class="metric"><span>Version match</span><strong>${data.workerBuildVersion === BUILD_VERSION ? 'yes' : 'no'}</strong></div>
     <div class="metric"><span>Worker status</span><strong>${escapeHtml(data.workerStatus || 'unknown')}</strong></div>
     <div class="metric"><span>Worker tick</span><strong>${formatNum(data.lastWorkerTickMs, 2)} ms</strong></div>
     <div class="metric"><span>Mesh quality</span><strong>${escapeHtml(data.meshQualityLabel || data.meshQuality || 'n/a')}</strong></div>
@@ -928,6 +952,11 @@ function renderDiagnostics(ui, diagnostics, mainMetrics) {
     <div class="metric"><span>Warm sea-ice anomalies</span><strong>${data.warmSeaIceAnomalyCount || 0}</strong></div>
     <div class="metric"><span>Warm land-ice anomalies</span><strong>${data.warmLandIceAnomalyCount || 0}</strong></div>
     <div class="metric"><span>Warm frozen-flow anomalies</span><strong>${data.warmFrozenFlowAnomalyCount || 0}</strong></div>
+    <div class="metric"><span>Cryosphere smoke</span><strong>${escapeHtml(data.cryosphereSmokeStatus || 'unchecked')}</strong></div>
+    <div class="metric"><span>Smoke cell</span><strong>${data.cryosphereSmokeCellId ?? 'n/a'}</strong></div>
+    <div class="metric"><span>Smoke cell temp</span><strong>${formatNum(data.cryosphereSmokeTemperatureC || 0, 1)} °C</strong></div>
+    <div class="metric"><span>Smoke cell ice type</span><strong>${escapeHtml(data.cryosphereSmokeIceType || 'n/a')}</strong></div>
+    <div class="metric"><span>Selected cryosphere</span><strong>${escapeHtml(data.selectedCellCryosphereStatus || 'no cell selected')}</strong></div>
     <div class="metric"><span>Sea ice share</span><strong>${formatPct(data.seaIceShare || 0)}</strong></div>
     <div class="metric"><span>Land snow/ice share</span><strong>${formatPct(data.landIceShare || 0)}</strong></div>
     <div class="metric"><span>Mean ice temperature</span><strong>${formatNum(data.meanIceTemperatureC || 0, 1)} °C</strong></div>
@@ -2445,9 +2474,9 @@ function startWorker() {
     initialGenerateSent = false;
     clearWorkerStartupTimer();
 
-    worker = new Worker('./simulation-worker.js?v=0.2.4');
+    worker = new Worker(WORKER_URL);
     setStatus(ui, 'Worker: external simulation-worker.js starting.');
-    addEvent(ui, 'External Worker attempted: simulation-worker.js?v=0.2.4.');
+    addEvent(ui, 'External Worker attempted: simulation-worker.js?v=0.2.5.1.');
 
     worker.addEventListener('message', onWorkerMessage);
     worker.addEventListener('error', (event) => {
@@ -2496,9 +2525,15 @@ function onWorkerMessage(event) {
     workerReady = true;
     clearWorkerStartupTimer();
     const displayMode = 'external';
-    if (ui.workerStatus) ui.workerStatus.textContent = `READY (${displayMode})`;
-    setStatus(ui, `Worker READY (${displayMode}) | ${payload.meshType} | ${payload.meshQualityLabel || 'mesh'} | ${payload.cellCount} cells`);
-    addEvent(ui, `Worker reported READY using ${displayMode} mode.`);
+    const workerBuildVersion = payload.workerBuildVersion || payload.buildVersion || 'unknown';
+    const workerBuildLabel = payload.workerBuildLabel || payload.buildLabel || 'unknown';
+    const versionOk = workerBuildVersion === BUILD_VERSION;
+    showVersionWarning(ui, versionOk, workerBuildVersion, workerBuildLabel);
+    if (ui.workerStatus) ui.workerStatus.textContent = versionOk ? `READY (${displayMode})` : `READY (${displayMode}, version mismatch)`;
+    setStatus(ui, versionOk
+      ? `Worker READY (${displayMode}) | ${payload.meshType} | ${payload.meshQualityLabel || 'mesh'} | ${payload.cellCount} cells | Worker ${workerBuildVersion}`
+      : `Worker version mismatch. Hard refresh or redeploy both files. HTML ${BUILD_VERSION}; Worker ${workerBuildVersion}.`);
+    addEvent(ui, versionOk ? `Worker reported READY using ${displayMode} mode, version ${workerBuildVersion}.` : `Worker version mismatch. HTML ${BUILD_VERSION}; Worker ${workerBuildVersion}; label ${workerBuildLabel}.`);
     if (!initialGenerateSent) {
       initialGenerateSent = true;
       addEvent(ui, 'Default generation request sent after READY.');

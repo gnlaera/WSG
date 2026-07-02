@@ -7,11 +7,11 @@
 /* ============================================================
    Protocol constants
    Source section: message-protocol.js
-   Compacted for Engine v2 0.2.9.
+   Compacted for Engine v2 0.3.0.
    ============================================================ */
 
-const BUILD_VERSION = '0.2.9';
-const BUILD_LABEL = 'WSG Engine v2 Build 0.2.9 - Reference Surface Semantics';
+const BUILD_VERSION = '0.3.0';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.3.0 - Reference Overlay Compositor';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',
@@ -162,7 +162,7 @@ const PROBES = Object.freeze([
   { id: 'hydrology_flow_legibility', label: 'Hydrology flow legibility health check' },
   { id: 'cryosphere_consistency', label: 'Cryosphere consistency health check' },
   { id: 'cryosphere_smoke', label: 'Cryosphere smoke regression check' },
-  { id: 'f42_gate', label: 'reference surface semantics F42 gate' }
+  { id: 'f42_gate', label: 'reference overlay compositor F42 gate' }
 ]);
 
 function makeEnvelope(type, payload = {}) {
@@ -173,7 +173,7 @@ function makeEnvelope(type, payload = {}) {
 /* ============================================================
    Utility math
    Source section: util/math.js
-   Compacted for Engine v2 0.2.9.
+   Compacted for Engine v2 0.3.0.
    ============================================================ */
 
 function clamp(value, min, max) {
@@ -225,7 +225,7 @@ function finite01(value) {
 /* ============================================================
    Deterministic random
    Source section: util/random.js
-   Compacted for Engine v2 0.2.9.
+   Compacted for Engine v2 0.3.0.
    ============================================================ */
 
 function stringToSeed(input) {
@@ -263,7 +263,7 @@ function hashUnit(seed, a = 0, b = 0) {
 /* ============================================================
    Performance helpers
    Source section: util/perf.js
-   Compacted for Engine v2 0.2.9.
+   Compacted for Engine v2 0.3.0.
    ============================================================ */
 
 function nowMs() {
@@ -290,10 +290,10 @@ function estimateTypedPayloadBytes(payload) {
 /* ============================================================
    State schema
    Source section: state-schema.js
-   Compacted for Engine v2 0.2.9.
+   Compacted for Engine v2 0.3.0.
    ============================================================ */
 
-const STATE_SCHEMA_VERSION = 'engine-v2-state-schema-0.2.9';
+const STATE_SCHEMA_VERSION = 'engine-v2-state-schema-0.3.0';
 
 const DEFAULT_CONFIG = Object.freeze({
   defaultMeshQuality: 'f42',
@@ -595,7 +595,7 @@ function validateArrayShape(state) {
 /* ============================================================
    Mesh
    Source section: sim/mesh.js
-   Compacted for Engine v2 0.2.9.
+   Compacted for Engine v2 0.3.0.
    ============================================================ */
 
 
@@ -1121,7 +1121,7 @@ function recomputeDerivedDiagnostics(state, mesh) {
 /* ============================================================
    Summaries and signatures
    Source section: sim/summaries.js
-   Compacted for Engine v2 0.2.9.
+   Compacted for Engine v2 0.3.0.
    ============================================================ */
 
 
@@ -1531,7 +1531,7 @@ function localLimitingFactor(state, i) {
 /* ============================================================
    Generation
    Source section: sim/generation.js
-   Compacted for Engine v2 0.2.9.
+   Compacted for Engine v2 0.3.0.
    ============================================================ */
 
 
@@ -1792,7 +1792,7 @@ function seedEarthlikeLife(state, mesh) {
 /* ============================================================
    Physical systems
    Source section: sim/physical.js
-   Compacted for Engine v2 0.2.9.
+   Compacted for Engine v2 0.3.0.
    ============================================================ */
 
 
@@ -1831,7 +1831,7 @@ function computeHabitability(state, i) {
 /* ============================================================
    Water
    Source section: sim/water.js
-   Compacted for Engine v2 0.2.9.
+   Compacted for Engine v2 0.3.0.
    ============================================================ */
 
 
@@ -2034,7 +2034,7 @@ function stepWater(state, mesh) {
 /* ============================================================
    Primitive life
    Source section: sim/life.js
-   Compacted for Engine v2 0.2.9.
+   Compacted for Engine v2 0.3.0.
    ============================================================ */
 
 
@@ -2098,7 +2098,7 @@ function stepLife(state, mesh) {
 /* ============================================================
    Ecosystems
    Source section: sim/ecosystems.js
-   Compacted for Engine v2 0.2.9.
+   Compacted for Engine v2 0.3.0.
    ============================================================ */
 
 
@@ -2119,7 +2119,7 @@ function stepEcosystems(state) {
 /* ============================================================
    Stewardship
    Source section: sim/stewardship.js
-   Compacted for Engine v2 0.2.9.
+   Compacted for Engine v2 0.3.0.
    ============================================================ */
 
 
@@ -2138,7 +2138,7 @@ function stepStewardship(state) {
 /* ============================================================
    Civilisation diagnostics
    Source section: sim/civilisation.js
-   Compacted for Engine v2 0.2.9.
+   Compacted for Engine v2 0.3.0.
    ============================================================ */
 
 
@@ -2162,7 +2162,7 @@ function stepCivilisation(state) {
 /* ============================================================
    Tools
    Source section: sim/tools.js
-   Compacted for Engine v2 0.2.9.
+   Compacted for Engine v2 0.3.0.
    ============================================================ */
 
 
@@ -2514,7 +2514,7 @@ function limitingFactor(state, i) {
 /* ============================================================
    Probes
    Source section: sim/probes.js
-   Compacted for Engine v2 0.2.9.
+   Compacted for Engine v2 0.3.0.
    ============================================================ */
 
 
@@ -2825,8 +2825,23 @@ function executeProbe(probeId, ctx, startSig) {
     return {
       status: pass ? 'pass' : 'fail',
       detail: pass
-        ? 'F42 mesh, 35,280-cell arrays, semantic surface fields, finite values, hydrology IDs, and cryosphere consistency passed.'
+        ? 'F42 mesh, 35,280-cell arrays, semantic surface fields, overlay source fields, finite values, hydrology IDs, and cryosphere consistency passed.'
         : `F42 gate failed: meshOk=${meshOk}; shape=${shapeFailures[0] || 'ok'}; finite=${finiteFailures[0] || 'ok'}; cryosphere=${cryo.anomalyCount}; downstream=${downstreamOk}`
+    };
+  }
+
+
+  if (probeId === 'reference_overlay_compositor') {
+    const render = buildRenderData(ctx.state, ctx.mesh);
+    const required = ['coastProximity', 'shallowWater', 'landRelief', 'slopeProxy', 'flowClass', 'downstreamCell', 'flowMagnitude', 'flowAccumulation', 'heatStress', 'waterStress', 'extinctionRisk', 'settlements', 'dirtyCells'];
+    const missing = required.filter((field) => !render[field] || render[field].length !== ctx.mesh.count);
+    const meshOk = ctx.mesh.frequency === 42 && ctx.mesh.count === 35280;
+    const hydroOk = render.downstreamCell && render.flowClass && render.flowMagnitude;
+    return {
+      status: missing.length === 0 && meshOk && hydroOk ? 'pass' : 'warn',
+      detail: missing.length === 0 && meshOk && hydroOk
+        ? 'Overlay compositor source fields are available: coast/shelf, contour relief, hydrology, warning markers, intervention markers, and F42 projection geometry.'
+        : `Overlay source fields incomplete. Missing: ${missing.join(', ') || 'none'}; meshOk=${meshOk}; hydroOk=${!!hydroOk}.`
     };
   }
 

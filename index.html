@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
-  <title>WSG Engine v2 Build 0.2.4 - Hydrology Flow Legibility</title>
+  <title>WSG Engine v2 Build 0.2.5 - Cryosphere Consistency Hotfix</title>
   <style>
 :root {
   color-scheme: dark;
@@ -218,8 +218,8 @@ body.bottom-info-collapsed .layerLegend { display: none; }
 <div class="app">
   <header class="topbar">
     <div class="brand">
-      <strong id="build-label">WSG Engine v2 Build 0.2.4 - Hydrology Flow Legibility</strong>
-      <span id="summary-line">Coherent high-resolution planet surface with directional hydrology-flow diagnostics, downstream traces, semantic terrain, and clean player shell.</span>
+      <strong id="build-label">WSG Engine v2 Build 0.2.5 - Cryosphere Consistency Hotfix</strong>
+      <span id="summary-line">Cryosphere-consistent high-resolution planet with temperature-gated ice, preserved hydrology-flow legibility, and clean player shell.</span>
     </div>
     <label class="small headerTemplateControl" title="World template">
       <span>Template</span>
@@ -395,7 +395,7 @@ body.bottom-info-collapsed .layerLegend { display: none; }
    Compacted for Engine v2 0.2.1.
    ============================================================ */
 
-const BUILD_LABEL = 'WSG Engine v2 Build 0.2.4 - Hydrology Flow Legibility';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.2.5 - Cryosphere Consistency Hotfix';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',
@@ -727,6 +727,10 @@ function renderSummary(ui, summary) {
     <div class="metric"><span>Average temperature</span><strong>${formatNum(summary.averageTemperatureC, 1)} °C</strong></div>
     <div class="metric"><span>Water share</span><strong>${formatPct(summary.waterShare)}</strong></div>
     <div class="metric"><span>Ice share</span><strong>${formatPct(summary.iceShare)}</strong></div>
+    <div class="metric"><span>Sea ice share</span><strong>${formatPct(summary.seaIceShare || 0)}</strong></div>
+    <div class="metric"><span>Land snow/ice share</span><strong>${formatPct(summary.landIceShare || 0)}</strong></div>
+    <div class="metric"><span>Warm-ice anomalies</span><strong>${summary.warmIceAnomalyCount || 0}</strong></div>
+    <div class="metric"><span>Cryosphere</span><strong>${escapeHtml(summary.cryosphereStatus || 'unchecked')}</strong></div>
     <div class="metric"><span>Habitable share</span><strong>${formatPct(summary.habitableShare)}</strong></div>
     <div class="metric"><span>Active flow</span><strong>${formatPct(summary.activeFlowShare || 0)}</strong></div>
     <div class="metric"><span>Surface water</span><strong>${formatPct(summary.surfaceWaterShare || 0)}</strong></div>
@@ -859,8 +863,10 @@ function renderSelected(ui, selected) {
     <div class="metric"><span>Land relief</span><strong>${formatNum(selected.landRelief, 3)}</strong></div>
     <div class="metric"><span>Water</span><strong>${formatNum(selected.water, 3)}</strong></div>
     <div class="metric"><span>Temperature</span><strong>${formatNum(selected.temperatureC, 1)} °C</strong></div>
-    <div class="metric"><span>Ice</span><strong>${formatNum(selected.ice, 3)}</strong></div>
-    <div class="metric"><span>Ice type</span><strong>${escapeHtml(iceTypeLabel(selected.iceType))}</strong></div>
+    <div class="metric"><span>Ice index</span><strong>${formatNum(selected.ice, 3)}</strong></div>
+    <div class="metric"><span>Ice type</span><strong>${escapeHtml(selected.iceTypeLabel || iceTypeLabel(selected.iceType))}</strong></div>
+    <div class="metric"><span>Frozen / blocked</span><strong>${escapeHtml(selected.frozenBlockedStatus || 'not frozen-blocked')}</strong></div>
+    <div class="metric wide"><span>Cryosphere</span><strong>${escapeHtml(selected.cryosphereStatus || 'consistent')}</strong></div>
     <div class="metric"><span>Aridity proxy</span><strong>${formatNum(selected.aridityProxy, 3)}</strong></div>
     <div class="metric"><span>Wetness proxy</span><strong>${formatNum(selected.wetnessProxy, 3)}</strong></div>
     <div class="metric"><span>Runoff</span><strong>${formatNum(selected.runoff, 3)}</strong></div>
@@ -917,6 +923,18 @@ function renderDiagnostics(ui, diagnostics, mainMetrics) {
     <div class="metric"><span>Cells</span><strong>${data.cellCount || 0}</strong></div>
     <div class="metric"><span>Neighbour links</span><strong>${data.neighbourLinks || 0}</strong></div>
     <div class="metric"><span>Last transfer</span><strong>${formatBytes(data.bytesTransferredLastRenderUpdate || 0)}</strong></div>
+    <div class="metric"><span>Cryosphere status</span><strong>${escapeHtml(data.cryosphereStatus || 'unchecked')}</strong></div>
+    <div class="metric"><span>Warm ice anomalies</span><strong>${data.warmIceAnomalyCount || 0}</strong></div>
+    <div class="metric"><span>Warm sea-ice anomalies</span><strong>${data.warmSeaIceAnomalyCount || 0}</strong></div>
+    <div class="metric"><span>Warm land-ice anomalies</span><strong>${data.warmLandIceAnomalyCount || 0}</strong></div>
+    <div class="metric"><span>Warm frozen-flow anomalies</span><strong>${data.warmFrozenFlowAnomalyCount || 0}</strong></div>
+    <div class="metric"><span>Sea ice share</span><strong>${formatPct(data.seaIceShare || 0)}</strong></div>
+    <div class="metric"><span>Land snow/ice share</span><strong>${formatPct(data.landIceShare || 0)}</strong></div>
+    <div class="metric"><span>Mean ice temperature</span><strong>${formatNum(data.meanIceTemperatureC || 0, 1)} °C</strong></div>
+    <div class="metric"><span>Warm-region ice share</span><strong>${formatPct(data.warmRegionIceShare || 0)}</strong></div>
+    <div class="metric"><span>Cold-region ice share</span><strong>${formatPct(data.coldRegionIceShare || 0)}</strong></div>
+    <div class="metric"><span>Cryosphere reconcile</span><strong>${formatNum(data.lastCryosphereReconciliationMs || 0, 2)} ms</strong></div>
+    <div class="metric"><span>Cryosphere corrections</span><strong>${data.lastCryosphereCorrections || 0}</strong></div>
     <div class="metric"><span>Perf warning</span><strong>${escapeHtml(data.performanceWarning || 'None')}</strong></div>
     <div class="metric"><span>Worker messages</span><strong>${data.workerMessageCount || 0}</strong></div>
     <div class="metric wide"><span>Last worker error</span><strong>${escapeHtml(data.lastWorkerError || 'None')}</strong></div>
@@ -1020,7 +1038,7 @@ function layerLegendText(mode, layerId, layerLabel) {
     elevation: 'Elevation model index: deep basin / lowland / highland / mountain.',
     water: 'Water model index: dry / damp / shallow or coastal / saturated.',
     temperature: 'Temperature model index: cold / temperate / hot / extreme heat.',
-    ice: 'Ice model index: none / patchy / sea-ice / ice cap.',
+    ice: 'Ice model index: temperature-gated none / patchy / sea-ice / land snow-ice.',
     habitability: 'Habitability model index: hostile / marginal / viable / favourable.',
     lifeViability: 'Life viability model index: blocked / marginal / viable / favourable.',
     primitiveLife: 'Primitive life model index: none / seeded / expanding / dense.',
@@ -1048,7 +1066,7 @@ function layerLegendText(mode, layerId, layerLabel) {
     aridityProxy: 'Aridity proxy: wet / semi-arid / arid / desert-like.',
     wetnessProxy: 'Wetness proxy: dry / moderate / wet / saturated.',
     vegetationPotential: 'Vegetation-potential proxy: barren / marginal / favourable / high. This is not actual plant life.',
-    iceType: 'Ice type proxy: none / sea ice / land snow-ice.'
+    iceType: 'Ice type proxy: temperature-gated none / sea ice / land snow-ice.'
   };
   return `${layerLabel}: ${families[layerId] || 'simplified model index: low / moderate / high / extreme.'}`;
 }
@@ -1230,7 +1248,7 @@ function createRenderer(canvas) {
   }
 
   function ensureNaturalTexture(cloudsEnabled) {
-    const textureSignature = [data.count, data.tick, data.year, data.meshQuality, cloudsEnabled ? 1 : 0, data.bytes || 0, 'coherent-surface-v4-hydrology'].join('|');
+    const textureSignature = [data.count, data.tick, data.year, data.meshQuality, cloudsEnabled ? 1 : 0, data.bytes || 0, 'coherent-surface-v5-cryosphere'].join('|');
     if (!naturalTextureDirty && naturalTextureSignature === textureSignature && naturalTextureImage) return;
     const start = performance.now();
     const texW = data.count >= 10000 ? 1280 : data.count >= 5000 ? 1024 : 832;
@@ -1339,12 +1357,13 @@ function createRenderer(canvas) {
         const idx = p * 4;
         const coast = clamp01(source.coastProximity?.[cell] ?? 0);
         const ice = clamp01(source.ice?.[cell] ?? 0);
+        const iceType = Number(source.iceType?.[cell] ?? 0) | 0;
         if (c <= 2 || right <= 2 || down <= 2 || coast > 0.35) {
           buf[idx] = Math.round(lerp(buf[idx], 210, 0.14));
           buf[idx + 1] = Math.round(lerp(buf[idx + 1], 196, 0.12));
           buf[idx + 2] = Math.round(lerp(buf[idx + 2], 138, 0.08));
         }
-        if (ice > 0.28) {
+        if (iceType !== 0 && ice > 0.28) {
           buf[idx] = Math.round(lerp(buf[idx], 242, 0.12));
           buf[idx + 1] = Math.round(lerp(buf[idx + 1], 248, 0.12));
           buf[idx + 2] = Math.round(lerp(buf[idx + 2], 252, 0.12));
@@ -1398,13 +1417,14 @@ function createRenderer(canvas) {
       const idx = p * 4;
       const coast = clamp01(source.coastProximity?.[cell] ?? 0);
       const ice = clamp01(source.ice?.[cell] ?? 0);
+      const iceType = Number(source.iceType?.[cell] ?? 0) | 0;
       const water = clamp01(source.water?.[cell] ?? 0);
       if (coast > 0.38 && water < 0.55) {
         buf[idx] = Math.round(lerp(buf[idx], 218, coast * 0.18));
         buf[idx + 1] = Math.round(lerp(buf[idx + 1], 199, coast * 0.14));
         buf[idx + 2] = Math.round(lerp(buf[idx + 2], 132, coast * 0.10));
       }
-      if (ice > 0.35) {
+      if (iceType !== 0 && ice > 0.35) {
         const a = ice * 0.20;
         buf[idx] = Math.round(lerp(buf[idx], 236, a));
         buf[idx + 1] = Math.round(lerp(buf[idx + 1], 244, a));
@@ -1843,7 +1863,8 @@ function drawSelectedCell(ctx, projection, radius, selectedCell, hoverCell, tool
 function naturalRgb(data, i, light, cloudsEnabled) {
   const cls = Number(data.terrainClass?.[i] ?? terrainVisualClass(data, i)) | 0;
   const water = clamp01(data.water?.[i] || 0);
-  const ice = clamp01(data.ice?.[i] || 0);
+  const iceType = Number(data.iceType?.[i] ?? 0) | 0;
+  const ice = iceType !== 0 ? clamp01(data.ice?.[i] || 0) : 0;
   const elev = clamp01(data.elevation?.[i] || 0);
   const depth = clamp01(data.oceanDepth?.[i] ?? (water > 0.5 ? (water - 0.5) * 2 : 0));
   const shelf = clamp01(data.shallowWater?.[i] || 0);
@@ -1892,15 +1913,15 @@ function naturalRgb(data, i, light, cloudsEnabled) {
   }
 
   // Ice layer respects sea ice vs land ice.
-  if (ice > 0.18) {
-    const a = clamp01(ice * (cls === 8 ? 0.70 : 0.82) * (0.60 + latAbs * 0.40));
+  if (iceType !== 0 && ice > 0.18) {
+    const a = clamp01(ice * (iceType === 1 ? 0.70 : 0.82) * (0.60 + latAbs * 0.40));
     r = lerp(r, cls === 8 ? 204 : 238, a);
     g = lerp(g, cls === 8 ? 230 : 244, a);
     b = lerp(b, cls === 8 ? 244 : 246, a);
   }
 
   // Relief and bathymetry are shading factors, not random per-triangle colour.
-  const terrainShade = (cls <= 2 || cls === 8) ? (0.82 + (1 - depth) * 0.12 + shelf * 0.05) : (0.86 + relief * 0.20 + clamp01(elev - 0.58) * 0.08 - arid * 0.04);
+  const terrainShade = (cls <= 2 || iceType === 1) ? (0.82 + (1 - depth) * 0.12 + shelf * 0.05) : (0.86 + relief * 0.20 + clamp01(elev - 0.58) * 0.08 - arid * 0.04);
   const micro = subtleSurfaceMicroTexture(data, i, cls);
   r = clamp(r * terrainShade + micro, 0, 255);
   g = clamp(g * terrainShade + micro * 0.65, 0, 255);
@@ -1933,12 +1954,14 @@ function terrainVisualClass(data, i) {
   if (data.terrainClass) return Number(data.terrainClass[i]) | 0;
   const water = clamp01(data.water?.[i] ?? 0);
   const ice = clamp01(data.ice?.[i] ?? 0);
+  const temp = clamp01(data.temperature?.[i] ?? 0.5);
   const elev = clamp01(data.elevation?.[i] ?? 0);
   const rainfall = clamp01(data.rainfall?.[i] ?? 0);
   const heat = clamp01(data.heatStress?.[i] ?? 0);
   const life = clamp01(data.primitiveLife?.[i] ?? 0);
-  if (water > 0.50 && ice > 0.35) return 8;
-  if (ice > 0.35) return 7;
+  const iceType = Number(data.iceType?.[i] ?? 0) | 0;
+  if (water > 0.50 && ice > 0.35 && iceType === 1 && temp <= 0.40) return 8;
+  if (ice > 0.35 && iceType === 2 && temp <= 0.415) return 7;
   if (water > 0.70) return 0;
   if (water > 0.50) return 1;
   if (water > 0.40) return 2;

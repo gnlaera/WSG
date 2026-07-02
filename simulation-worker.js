@@ -7,11 +7,11 @@
 /* ============================================================
    Protocol constants
    Source section: message-protocol.js
-   Compacted for Engine v2 0.2.1.
+   Compacted for Engine v2 0.2.6.
    ============================================================ */
 
-const BUILD_VERSION = '0.2.5.1';
-const BUILD_LABEL = 'WSG Engine v2 Build 0.2.5.1 - Worker Cache-Bust Hotfix';
+const BUILD_VERSION = '0.2.6';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.2.6 - F34 High-Resolution Planet Gate';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',
@@ -67,13 +67,13 @@ const ARCHETYPES = Object.freeze([
 
 
 const MESH_QUALITY_OPTIONS = Object.freeze([
-  { id: 'highres', label: 'High Resolution - 11,520 triangle faces', frequency: 24, targetFaces: 11520, default: true }
+  { id: 'f34', label: 'F34 High Resolution - 23,120 triangle faces', frequency: 34, targetFaces: 23120, default: true }
 ]);
 
 function meshQualityProfile(id) {
-  const requested = String(id || 'highres');
-  return MESH_QUALITY_OPTIONS.find((item) => item.id === requested) || MESH_QUALITY_OPTIONS[0];
+  return MESH_QUALITY_OPTIONS[0];
 }
+
 
 const LAYERS = Object.freeze([
   { id: 'elevation', label: 'Elevation' },
@@ -161,7 +161,8 @@ const PROBES = Object.freeze([
   { id: 'coherent_planet_surface', label: 'Coherent planet surface health check' },
   { id: 'hydrology_flow_legibility', label: 'Hydrology flow legibility health check' },
   { id: 'cryosphere_consistency', label: 'Cryosphere consistency health check' },
-  { id: 'cryosphere_smoke', label: 'Cryosphere smoke regression check' }
+  { id: 'cryosphere_smoke', label: 'Cryosphere smoke regression check' },
+  { id: 'f34_gate', label: 'F34 high-resolution planet gate check' }
 ]);
 
 function makeEnvelope(type, payload = {}) {
@@ -172,7 +173,7 @@ function makeEnvelope(type, payload = {}) {
 /* ============================================================
    Utility math
    Source section: util/math.js
-   Compacted for Engine v2 0.2.1.
+   Compacted for Engine v2 0.2.6.
    ============================================================ */
 
 function clamp(value, min, max) {
@@ -224,7 +225,7 @@ function finite01(value) {
 /* ============================================================
    Deterministic random
    Source section: util/random.js
-   Compacted for Engine v2 0.2.1.
+   Compacted for Engine v2 0.2.6.
    ============================================================ */
 
 function stringToSeed(input) {
@@ -262,7 +263,7 @@ function hashUnit(seed, a = 0, b = 0) {
 /* ============================================================
    Performance helpers
    Source section: util/perf.js
-   Compacted for Engine v2 0.2.1.
+   Compacted for Engine v2 0.2.6.
    ============================================================ */
 
 function nowMs() {
@@ -289,13 +290,13 @@ function estimateTypedPayloadBytes(payload) {
 /* ============================================================
    State schema
    Source section: state-schema.js
-   Compacted for Engine v2 0.2.1.
+   Compacted for Engine v2 0.2.6.
    ============================================================ */
 
-const STATE_SCHEMA_VERSION = 'engine-v2-state-schema-0.2.5.1';
+const STATE_SCHEMA_VERSION = 'engine-v2-state-schema-0.2.6';
 
 const DEFAULT_CONFIG = Object.freeze({
-  defaultMeshQuality: 'highres',
+  defaultMeshQuality: 'f34',
   initialSeed: 'ENGINE-V2-001',
   yearPerStep: 1,
   maxAdvanceSteps: 250,
@@ -500,7 +501,7 @@ function createSimulationState(mesh, options = {}) {
       lastError: '',
       neighbourLinks: mesh.neighbourLinkCount,
       meshQuality: mesh.qualityId || DEFAULT_CONFIG.defaultMeshQuality,
-      meshQualityLabel: mesh.qualityLabel || 'High Resolution - 11,520 triangle faces',
+      meshQualityLabel: mesh.qualityLabel || 'F34 High Resolution - 23,120 triangle faces',
       meshFrequency: mesh.frequency || 12,
       performanceWarning: ''
     }
@@ -594,7 +595,7 @@ function validateArrayShape(state) {
 /* ============================================================
    Mesh
    Source section: sim/mesh.js
-   Compacted for Engine v2 0.2.1.
+   Compacted for Engine v2 0.2.6.
    ============================================================ */
 
 
@@ -632,8 +633,8 @@ function createMeshForQuality(qualityId) {
 }
 
 function createIcosphereMesh(options = {}) {
-  const frequency = clamp(options.frequency ?? 12, 1, 24) | 0;
-  const qualityId = String(options.qualityId || (frequency <= 8 ? 'performance' : frequency >= 16 ? 'high' : 'standard'));
+  const frequency = clamp(options.frequency ?? 34, 1, 64) | 0;
+  const qualityId = String(options.qualityId || (frequency <= 8 ? 'performance' : frequency >= 34 ? 'f34' : 'f34'));
   const qualityLabel = options.qualityLabel || meshQualityProfile(qualityId).label;
   const phi = (1 + Math.sqrt(5)) / 2;
   const baseVertices = [
@@ -815,7 +816,7 @@ function expandRadius(mesh, originCell, radius) {
 }
 
 function meshSignature(mesh) {
-  return `${mesh.type}|Q:${mesh.qualityId || 'standard'}|F${mesh.frequency || mesh.subdivisions}|cells:${mesh.count}|vertices:${mesh.vertexCount}|links:${mesh.neighbourLinkCount}`;
+  return `${mesh.type}|Q:${mesh.qualityId || 'f34'}|F${mesh.frequency || mesh.subdivisions}|cells:${mesh.count}|vertices:${mesh.vertexCount}|links:${mesh.neighbourLinkCount}`;
 }
 
 
@@ -1120,7 +1121,7 @@ function recomputeDerivedDiagnostics(state, mesh) {
 /* ============================================================
    Summaries and signatures
    Source section: sim/summaries.js
-   Compacted for Engine v2 0.2.1.
+   Compacted for Engine v2 0.2.6.
    ============================================================ */
 
 
@@ -1530,7 +1531,7 @@ function localLimitingFactor(state, i) {
 /* ============================================================
    Generation
    Source section: sim/generation.js
-   Compacted for Engine v2 0.2.1.
+   Compacted for Engine v2 0.2.6.
    ============================================================ */
 
 
@@ -1791,7 +1792,7 @@ function seedEarthlikeLife(state, mesh) {
 /* ============================================================
    Physical systems
    Source section: sim/physical.js
-   Compacted for Engine v2 0.2.1.
+   Compacted for Engine v2 0.2.6.
    ============================================================ */
 
 
@@ -1830,7 +1831,7 @@ function computeHabitability(state, i) {
 /* ============================================================
    Water
    Source section: sim/water.js
-   Compacted for Engine v2 0.2.1.
+   Compacted for Engine v2 0.2.6.
    ============================================================ */
 
 
@@ -2033,7 +2034,7 @@ function stepWater(state, mesh) {
 /* ============================================================
    Primitive life
    Source section: sim/life.js
-   Compacted for Engine v2 0.2.1.
+   Compacted for Engine v2 0.2.6.
    ============================================================ */
 
 
@@ -2097,7 +2098,7 @@ function stepLife(state, mesh) {
 /* ============================================================
    Ecosystems
    Source section: sim/ecosystems.js
-   Compacted for Engine v2 0.2.1.
+   Compacted for Engine v2 0.2.6.
    ============================================================ */
 
 
@@ -2118,7 +2119,7 @@ function stepEcosystems(state) {
 /* ============================================================
    Stewardship
    Source section: sim/stewardship.js
-   Compacted for Engine v2 0.2.1.
+   Compacted for Engine v2 0.2.6.
    ============================================================ */
 
 
@@ -2137,7 +2138,7 @@ function stepStewardship(state) {
 /* ============================================================
    Civilisation diagnostics
    Source section: sim/civilisation.js
-   Compacted for Engine v2 0.2.1.
+   Compacted for Engine v2 0.2.6.
    ============================================================ */
 
 
@@ -2161,7 +2162,7 @@ function stepCivilisation(state) {
 /* ============================================================
    Tools
    Source section: sim/tools.js
-   Compacted for Engine v2 0.2.1.
+   Compacted for Engine v2 0.2.6.
    ============================================================ */
 
 
@@ -2513,7 +2514,7 @@ function limitingFactor(state, i) {
 /* ============================================================
    Probes
    Source section: sim/probes.js
-   Compacted for Engine v2 0.2.1.
+   Compacted for Engine v2 0.2.6.
    ============================================================ */
 
 
@@ -2713,7 +2714,7 @@ function executeProbe(probeId, ctx, startSig) {
   if (probeId === 'visual_resolution') {
     const profile = meshQualityProfile(ctx.state.meshQuality || ctx.mesh.qualityId || DEFAULT_CONFIG.defaultMeshQuality);
     const shapeFailures = validateArrayShape(ctx.state);
-    const ok = ctx.mesh.count === profile.targetFaces && ctx.mesh.count >= 11520 && shapeFailures.length === 0 && ctx.mesh.frequency === profile.frequency;
+    const ok = ctx.mesh.count === profile.targetFaces && ctx.mesh.count >= 23120 && shapeFailures.length === 0 && ctx.mesh.frequency === profile.frequency;
     return { status: ok ? 'pass' : 'fail', detail: ok ? `${profile.label}; ${ctx.mesh.count} active triangle cells; arrays match active cell count.` : `Expected ${profile.targetFaces} cells for ${profile.label}; got ${ctx.mesh.count}. ${shapeFailures.join('; ')}` };
   }
 
@@ -2722,7 +2723,7 @@ function executeProbe(probeId, ctx, startSig) {
     const render = buildRenderData(ctx.state, ctx.mesh);
     const ok = render.count === ctx.mesh.count
       && summary.cellCount === ctx.mesh.count
-      && ctx.mesh.count === 11520
+      && ctx.mesh.count === 23120
       && render.layerIds.includes('elevation')
       && render.layerIds.includes('temperature')
       && render.layerIds.includes('collapseRisk')
@@ -2805,6 +2806,27 @@ function executeProbe(probeId, ctx, startSig) {
       detail: ok
         ? 'Cryosphere gates passed: generation has no warm ice anomalies; forced warm sea ice was cleaned; Ice Asteroid creates only temperature-justified ice.'
         : `Cryosphere failures: generated sea ${warmSeaAfterGenerate}, land ${warmLandAfterGenerate}, flow ${warmFlowAfterGenerate}; warm cleanup ${warmCellClean}; ice tool ${toolCreatesValidIce}; final anomalies ${finalCheck.anomalyCount}.`
+    };
+  }
+
+  if (probeId === 'f34_gate') {
+    const shapeFailures = validateArrayShape(ctx.state);
+    const finiteFailures = validateFiniteBounded(ctx.state);
+    const meshOk = ctx.mesh.frequency === 34 && ctx.mesh.count === 23120;
+    const cryo = checkCryosphereConsistency(ctx.state, ctx.mesh);
+    let downstreamOk = !!ctx.state.downstreamCell;
+    if (downstreamOk) {
+      for (let i = 0; i < ctx.state.downstreamCell.length; i += 1) {
+        const v = ctx.state.downstreamCell[i];
+        if (v < -1 || v >= ctx.state.cellCount) { downstreamOk = false; break; }
+      }
+    }
+    const pass = meshOk && shapeFailures.length === 0 && finiteFailures.length === 0 && cryo.anomalyCount === 0 && downstreamOk;
+    return {
+      status: pass ? 'pass' : 'fail',
+      detail: pass
+        ? 'F34 mesh, 23,120-cell arrays, finite values, hydrology IDs, and cryosphere consistency passed.'
+        : `F34 gate failed: meshOk=${meshOk}; shape=${shapeFailures[0] || 'ok'}; finite=${finiteFailures[0] || 'ok'}; cryosphere=${cryo.anomalyCount}; downstream=${downstreamOk}`
     };
   }
 
@@ -2907,7 +2929,7 @@ function generateWithOptions(options = {}) {
   state.diagnostics.meshQuality = requestedQuality.id;
   state.diagnostics.meshQualityLabel = requestedQuality.label;
   state.diagnostics.meshFrequency = mesh.frequency || 0;
-  state.diagnostics.performanceWarning = mesh.count > 9000 ? 'High-resolution 11,520-cell mesh active. Use optional diagnostics if render or interaction feels slow.' : '';
+  state.diagnostics.performanceWarning = mesh.count >= 23120 ? 'F34 23,120-cell mesh active. Water Flow and Diagnostic overlays are screen-space thinned; use Diagnostics if frame budget warnings appear.' : '';
 }
 
 function ensureMeshOnly(qualityId = DEFAULT_CONFIG.defaultMeshQuality) {
@@ -2976,6 +2998,7 @@ function sendDiagnostics() {
     lastRenderDataBuildMs: state ? state.diagnostics.lastRenderBuildMs : 0,
     renderDirty: state ? state.renderDirty : false,
     trendDirty: state ? state.trendDirty : false,
+    arrayShapeStatus: state ? (validateArrayShape(state).length === 0 ? 'pass' : validateArrayShape(state)[0]) : 'not initialised',
     cellCount: mesh ? mesh.count : 0,
     meshQuality: mesh ? mesh.qualityId : DEFAULT_CONFIG.defaultMeshQuality,
     meshQualityLabel: mesh ? mesh.qualityLabel : meshQualityProfile(DEFAULT_CONFIG.defaultMeshQuality).label,

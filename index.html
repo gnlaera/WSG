@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
-  <title>WSG Engine v2 Build 0.2.3 - Coherent Planet Surface</title>
+  <title>WSG Engine v2 Build 0.2.4 - Hydrology Flow Legibility</title>
   <style>
 :root {
   color-scheme: dark;
@@ -218,8 +218,8 @@ body.bottom-info-collapsed .layerLegend { display: none; }
 <div class="app">
   <header class="topbar">
     <div class="brand">
-      <strong id="build-label">WSG Engine v2 Build 0.2.3 - Coherent Planet Surface</strong>
-      <span id="summary-line">Coherent high-resolution planet surface with semantic terrain classes, coast-aware texture cache, polished trackball rotation, and clean player shell.</span>
+      <strong id="build-label">WSG Engine v2 Build 0.2.4 - Hydrology Flow Legibility</strong>
+      <span id="summary-line">Coherent high-resolution planet surface with directional hydrology-flow diagnostics, downstream traces, semantic terrain, and clean player shell.</span>
     </div>
     <label class="small headerTemplateControl" title="World template">
       <span>Template</span>
@@ -367,6 +367,11 @@ body.bottom-info-collapsed .layerLegend { display: none; }
         <label><input type="checkbox" data-trend="biosphereHealth" checked> Biosphere</label>
         <label><input type="checkbox" data-trend="settlement" checked> Settlements</label>
         <label><input type="checkbox" data-trend="collapseRisk" checked> Collapse</label>
+        <label><input type="checkbox" data-trend="runoffMean"> Runoff</label>
+        <label><input type="checkbox" data-trend="surfaceWaterShare"> Surface water</label>
+        <label><input type="checkbox" data-trend="activeFlowShare"> Active flow</label>
+        <label><input type="checkbox" data-trend="basinSinkShare"> Basins/sinks</label>
+        <label><input type="checkbox" data-trend="coastOutletShare"> Coast outlets</label>
       </div>
       <canvas id="trends-canvas" width="500" height="200" aria-label="Planet trends chart"></canvas>
       <div id="trends-readout">Trend history will appear after generation and ticks. Canvas 2D only; no per-cell history.</div>
@@ -374,7 +379,7 @@ body.bottom-info-collapsed .layerLegend { display: none; }
   </section>
 
   <footer class="footer">
-    <span>Engine v2 coherent planet surface. Two files only: index.html and simulation-worker.js. Canvas 2D renderer; Worker-owned mesh, semantic surface arrays, tools, validation, and render data.</span>
+    <span>Engine v2 hydrology flow legibility build. Two files only: index.html and simulation-worker.js. Canvas 2D renderer; Worker-owned mesh, semantic surface arrays, tools, validation, and render data.</span>
     <span>Two-file Worker architecture</span>
   </footer>
 </div>
@@ -390,7 +395,7 @@ body.bottom-info-collapsed .layerLegend { display: none; }
    Compacted for Engine v2 0.2.1.
    ============================================================ */
 
-const BUILD_LABEL = 'WSG Engine v2 Build 0.2.3 - Coherent Planet Surface';
+const BUILD_LABEL = 'WSG Engine v2 Build 0.2.4 - Hydrology Flow Legibility';
 
 const COMMANDS = Object.freeze({
   INIT: 'INIT',
@@ -468,6 +473,8 @@ const LAYERS = Object.freeze([
   { id: 'civilisationSuitability', label: 'Civilisation Suitability' },
   { id: 'settlements', label: 'Settlements' },
   { id: 'waterFlow', label: 'Water Flow' },
+  { id: 'surfaceWater', label: 'Surface Water' },
+  { id: 'flowAccumulation', label: 'Flow Accumulation' },
   { id: 'cloudCover', label: 'Cloud Cover' },
   { id: 'lifeViability', label: 'Life Viability' },
   { id: 'dormantLife', label: 'Dormant Life' },
@@ -533,7 +540,10 @@ const PROBES = Object.freeze([
   { id: 'intervention_parity', label: 'Intervention parity check' },
   { id: 'no_dom_in_worker', label: 'No UI access in worker check' },
   { id: 'render_data_finite', label: 'Render-data finite/bounded check' },
-  { id: 'visual_resolution', label: 'Scientific visual resolution check' }
+  { id: 'visual_resolution', label: 'Scientific visual resolution check' },
+  { id: 'high_resolution_spherical_renderer', label: 'High-resolution spherical renderer health check' },
+  { id: 'coherent_planet_surface', label: 'Coherent planet surface health check' },
+  { id: 'hydrology_flow_legibility', label: 'Hydrology flow legibility health check' }
 ]);
 
 function makeEnvelope(type, payload = {}) {
@@ -718,6 +728,10 @@ function renderSummary(ui, summary) {
     <div class="metric"><span>Water share</span><strong>${formatPct(summary.waterShare)}</strong></div>
     <div class="metric"><span>Ice share</span><strong>${formatPct(summary.iceShare)}</strong></div>
     <div class="metric"><span>Habitable share</span><strong>${formatPct(summary.habitableShare)}</strong></div>
+    <div class="metric"><span>Active flow</span><strong>${formatPct(summary.activeFlowShare || 0)}</strong></div>
+    <div class="metric"><span>Surface water</span><strong>${formatPct(summary.surfaceWaterShare || 0)}</strong></div>
+    <div class="metric"><span>Basin/sink share</span><strong>${formatPct(summary.basinSinkShare || 0)}</strong></div>
+    <div class="metric"><span>Coast outlets</span><strong>${formatPct(summary.coastOutletShare || 0)}</strong></div>
     <div class="metric"><span>Primitive life</span><strong>${formatNum(summary.primitiveLifeMean, 3)}</strong></div>
     <div class="metric"><span>Biosphere health</span><strong>${formatNum(summary.biosphereHealthMean, 3)}</strong></div>
     <div class="metric"><span>Settlements</span><strong>${formatPct(summary.settlementShare)}</strong></div>
@@ -810,6 +824,21 @@ function iceTypeLabel(code) {
   return labels[Number(code) | 0] || 'unknown';
 }
 
+function flowClassLabel(code) {
+  const labels = ['dry/no flow', 'source/headwater', 'pass-through', 'converging flow', 'local sink/basin', 'lake/storage', 'coast/ocean outlet', 'frozen/blocked', 'ocean/no land flow', 'uncertain/diffuse'];
+  return labels[Number(code) | 0] || 'unknown';
+}
+
+function sinkTypeLabel(code) {
+  const labels = ['none', 'local sink', 'lake/storage', 'coast outlet', 'ocean', 'frozen blockage', 'uncertain/loop guard'];
+  return labels[Number(code) | 0] || 'unknown';
+}
+
+function endpointLabel(code) {
+  const labels = ['none', 'sink', 'lake/storage', 'coast outlet', 'ocean', 'frozen blockage', 'loop guard', 'max trace length'];
+  return labels[Number(code) | 0] || 'unknown';
+}
+
 function renderSelected(ui, selected) {
   if (!selected || selected.cellId < 0) {
     if (ui.applyTool) ui.applyTool.disabled = true;
@@ -834,6 +863,16 @@ function renderSelected(ui, selected) {
     <div class="metric"><span>Ice type</span><strong>${escapeHtml(iceTypeLabel(selected.iceType))}</strong></div>
     <div class="metric"><span>Aridity proxy</span><strong>${formatNum(selected.aridityProxy, 3)}</strong></div>
     <div class="metric"><span>Wetness proxy</span><strong>${formatNum(selected.wetnessProxy, 3)}</strong></div>
+    <div class="metric"><span>Runoff</span><strong>${formatNum(selected.runoff, 3)}</strong></div>
+    <div class="metric"><span>Surface water</span><strong>${formatNum(selected.surfaceWater, 3)}</strong></div>
+    <div class="metric"><span>Flow class</span><strong>${escapeHtml(selected.flowClassLabel || flowClassLabel(selected.flowClass))}</strong></div>
+    <div class="metric"><span>Downstream</span><strong>${escapeHtml(selected.downstreamLabel || (selected.downstreamCell >= 0 ? `cell ${selected.downstreamCell}` : 'none'))}</strong></div>
+    <div class="metric"><span>Flow magnitude</span><strong>${formatNum(selected.flowMagnitude, 3)}</strong></div>
+    <div class="metric"><span>Flow accumulation</span><strong>${formatNum(selected.flowAccumulation, 3)}</strong></div>
+    <div class="metric"><span>Upstream contribution</span><strong>${formatNum(selected.upstreamContributingCount, 1)}</strong></div>
+    <div class="metric"><span>Sink / outlet</span><strong>${escapeHtml(selected.sinkTypeLabel || sinkTypeLabel(selected.sinkType))}</strong></div>
+    <div class="metric"><span>Flow endpoint</span><strong>${escapeHtml(selected.flowPathEndpointLabel || endpointLabel(selected.flowPathEndpoint))}</strong></div>
+    <div class="metric wide"><span>Hydrology interpretation</span><strong>${escapeHtml(selected.hydrologyInterpretation || 'Select Water Flow to trace downstream routing.')}</strong></div>
     <div class="metric"><span>Vegetation potential</span><strong>${formatNum(selected.vegetationPotential, 3)}</strong></div>
     <div class="metric"><span>Habitability</span><strong>${formatNum(selected.habitability, 3)}</strong></div>
     <div class="metric"><span>Primitive life</span><strong>${formatNum(selected.primitiveLife, 3)}</strong></div>
@@ -994,6 +1033,9 @@ function layerLegendText(mode, layerId, layerLabel) {
     humidity: 'Humidity proxy: dry / moderate / humid / saturated.',
     rainfall: 'Rainfall proxy: arid / moderate / wet / very wet.',
     runoff: 'Runoff proxy: low / moderate / high / extreme.',
+    waterFlow: 'Water Flow model diagnostic: arrows point downstream; brighter or thicker marks mean stronger simplified flow; rings mark sinks/storage; outlet symbols mark coast/ocean exit; pale marks mean frozen or blocked flow. This is not calibrated discharge.',
+    surfaceWater: 'Surface water storage model index: none / local pooling / storage-prone / high storage.',
+    flowAccumulation: 'Flow accumulation model index: little upstream contribution / moderate convergence / strong convergence / outlet-scale concentration.',
     waterStress: 'Water stress model index: low / moderate / high / extreme.',
     civilisationSuitability: 'Civilisation suitability model index: poor / marginal / viable / strong.',
     settlements: 'Settlements model index: none / sparse / established / concentrated.',
@@ -1148,10 +1190,12 @@ function createRenderer(canvas) {
     if (mode === 'diagnostic') {
       drawPlanetDisc(ctx, cx, cy, radius);
       drawCells(ctx, cx, cy, radius, 'diagnostic', layer, 1, cloudsEnabled);
+      if (layer === 'waterFlow') drawWaterFlowOverlay(ctx, cx, cy, radius, 'diagnostic');
     } else {
       drawNaturalSurface(ctx, view, cloudsEnabled);
       if (mode === 'overlay') {
         drawCells(ctx, cx, cy, radius, 'layer', layer, overlayOpacity, cloudsEnabled);
+        if (layer === 'waterFlow') drawWaterFlowOverlay(ctx, cx, cy, radius, 'overlay');
       }
     }
 
@@ -1186,7 +1230,7 @@ function createRenderer(canvas) {
   }
 
   function ensureNaturalTexture(cloudsEnabled) {
-    const textureSignature = [data.count, data.tick, data.year, data.meshQuality, cloudsEnabled ? 1 : 0, data.bytes || 0, 'coherent-surface-v3'].join('|');
+    const textureSignature = [data.count, data.tick, data.year, data.meshQuality, cloudsEnabled ? 1 : 0, data.bytes || 0, 'coherent-surface-v4-hydrology'].join('|');
     if (!naturalTextureDirty && naturalTextureSignature === textureSignature && naturalTextureImage) return;
     const start = performance.now();
     const texW = data.count >= 10000 ? 1280 : data.count >= 5000 ? 1024 : 832;
@@ -1509,6 +1553,164 @@ function createRenderer(canvas) {
   }
 
 
+  function drawWaterFlowOverlay(context, cx, cy, radius, densityMode) {
+    if (!data?.downstreamCell || !lastProjection?.length) return;
+    const diagnostic = densityMode === 'diagnostic';
+    const maxMarks = diagnostic ? 1800 : 950;
+    const minMag = diagnostic ? 0.025 : 0.070;
+    const candidates = [];
+    const count = data.count || 0;
+    const stride = diagnostic ? 1 : Math.max(1, Math.floor(count / 6400));
+    for (let i = 0; i < count; i += stride) {
+      const cls = data.flowClass?.[i] | 0;
+      const mag = clamp01(data.flowMagnitude?.[i] || data.waterFlow?.[i] || 0);
+      const acc = clamp01(data.flowAccumulation?.[i] || 0);
+      if (cls === 8 || cls === 0) continue;
+      if (mag < minMag && cls !== 4 && cls !== 5 && cls !== 6 && cls !== 7) continue;
+      const p = lastProjection[i];
+      if (!p || p.depth <= 0.03) continue;
+      candidates.push([i, mag * 0.62 + acc * 0.38 + (cls === 3 ? 0.16 : 0)]);
+    }
+    candidates.sort((a, b) => b[1] - a[1]);
+    context.save();
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    let drawn = 0;
+    for (const [i] of candidates) {
+      if (drawn >= maxMarks) break;
+      const p = lastProjection[i];
+      if (!p || p.depth <= 0.03) continue;
+      const cls = data.flowClass?.[i] | 0;
+      const d = data.downstreamCell?.[i] ?? -1;
+      const mag = clamp01(data.flowMagnitude?.[i] || data.waterFlow?.[i] || 0);
+      const acc = clamp01(data.flowAccumulation?.[i] || 0);
+      if (cls === 4 || cls === 5) {
+        drawFlowMarker(context, p.x, p.y, radius, cls, mag, acc);
+        drawn += 1;
+        continue;
+      }
+      if (cls === 6) {
+        drawOutletMarker(context, p.x, p.y, radius, mag, acc);
+        drawn += 1;
+        continue;
+      }
+      if (cls === 7) {
+        drawFrozenMarker(context, p.x, p.y, radius, mag);
+        drawn += 1;
+        continue;
+      }
+      if (d < 0 || d >= count) continue;
+      const q = lastProjection[d];
+      if (!q || q.depth <= 0.02) continue;
+      const dx = q.x - p.x;
+      const dy = q.y - p.y;
+      const len = Math.hypot(dx, dy);
+      if (!Number.isFinite(len) || len < 2 || len > radius * 0.20) continue;
+      const ux = dx / len;
+      const uy = dy / len;
+      const length = Math.min(radius * (0.025 + mag * 0.045 + acc * 0.030), len * 0.82);
+      const sx = p.x + ux * Math.max(2, radius * 0.004);
+      const sy = p.y + uy * Math.max(2, radius * 0.004);
+      const ex = sx + ux * length;
+      const ey = sy + uy * length;
+      const alpha = diagnostic ? 0.30 + mag * 0.55 : 0.24 + mag * 0.46;
+      const width = Math.max(0.75, radius * (0.0018 + mag * 0.004 + acc * 0.003));
+      context.strokeStyle = flowStroke(cls, alpha, acc);
+      context.fillStyle = flowStroke(cls, Math.min(0.95, alpha + 0.18), acc);
+      context.lineWidth = width;
+      context.beginPath();
+      context.moveTo(sx, sy);
+      context.lineTo(ex, ey);
+      context.stroke();
+      const head = Math.max(3.0, width * 2.7);
+      context.beginPath();
+      context.moveTo(ex, ey);
+      context.lineTo(ex - ux * head - uy * head * 0.55, ey - uy * head + ux * head * 0.55);
+      context.lineTo(ex - ux * head + uy * head * 0.55, ey - uy * head - ux * head * 0.55);
+      context.closePath();
+      context.fill();
+      drawn += 1;
+    }
+    drawSelectedFlowTrace(context, radius);
+    context.restore();
+  }
+
+  function flowStroke(cls, alpha, acc) {
+    if (cls === 1) return `rgba(118,220,255,${alpha})`;
+    if (cls === 3) return `rgba(60,245,205,${Math.min(0.96, alpha + acc * 0.22)})`;
+    if (cls === 9) return `rgba(170,180,190,${alpha * 0.72})`;
+    return `rgba(86,180,255,${alpha})`;
+  }
+
+  function drawFlowMarker(context, x, y, radius, cls, mag, acc) {
+    const r = Math.max(3.5, radius * (0.006 + acc * 0.008));
+    context.beginPath();
+    context.arc(x, y, r, 0, Math.PI * 2);
+    context.fillStyle = cls === 5 ? 'rgba(78,200,255,0.55)' : 'rgba(255,190,86,0.62)';
+    context.fill();
+    context.strokeStyle = cls === 5 ? 'rgba(200,244,255,0.82)' : 'rgba(255,224,144,0.88)';
+    context.lineWidth = Math.max(1, radius * 0.0025);
+    context.stroke();
+  }
+
+  function drawOutletMarker(context, x, y, radius, mag, acc) {
+    const r = Math.max(4, radius * (0.006 + mag * 0.008 + acc * 0.004));
+    context.beginPath();
+    context.moveTo(x, y - r);
+    context.lineTo(x + r * 0.9, y + r * 0.7);
+    context.lineTo(x - r * 0.9, y + r * 0.7);
+    context.closePath();
+    context.fillStyle = 'rgba(110,240,230,0.70)';
+    context.fill();
+  }
+
+  function drawFrozenMarker(context, x, y, radius, mag) {
+    const r = Math.max(3.5, radius * (0.005 + mag * 0.005));
+    context.strokeStyle = 'rgba(210,235,255,0.68)';
+    context.lineWidth = Math.max(1, radius * 0.002);
+    context.beginPath();
+    context.moveTo(x - r, y - r);
+    context.lineTo(x + r, y + r);
+    context.moveTo(x + r, y - r);
+    context.lineTo(x - r, y + r);
+    context.stroke();
+  }
+
+  function drawSelectedFlowTrace(context, radius) {
+    const selected = data.selectedCell;
+    if (selected < 0 || !data.downstreamCell) return;
+    const start = lastProjection[selected];
+    if (!start || start.depth <= 0.03) return;
+    context.strokeStyle = 'rgba(255,255,180,0.82)';
+    context.fillStyle = 'rgba(255,255,180,0.95)';
+    context.lineWidth = Math.max(1.5, radius * 0.005);
+    context.beginPath();
+    context.moveTo(start.x, start.y);
+    let cur = selected;
+    let drawn = 0;
+    const seen = new Set();
+    for (let step = 0; step < 26; step += 1) {
+      const next = data.downstreamCell[cur];
+      if (next < 0 || next >= data.count || seen.has(cur)) break;
+      seen.add(cur);
+      const p = lastProjection[next];
+      if (!p || p.depth <= 0.02) break;
+      const prev = lastProjection[cur];
+      const dist = Math.hypot(p.x - prev.x, p.y - prev.y);
+      if (dist > radius * 0.24) break;
+      context.lineTo(p.x, p.y);
+      cur = next;
+      drawn += 1;
+    }
+    if (drawn > 0) context.stroke();
+    const end = lastProjection[cur];
+    if (end && end.depth > 0.02) {
+      context.beginPath();
+      context.arc(end.x, end.y, Math.max(4, radius * 0.009), 0, Math.PI * 2);
+      context.fill();
+    }
+  }
+
   function drawToolEffectFlash(context, projection, radius, dirtyCells) {
     if (!dirtyCells || !projection || dirtyCells.length === 0) return;
     context.save();
@@ -1753,7 +1955,10 @@ function layerColor(data, i, layer, light, diagnostic) {
   let color;
   if (layer === 'terrainClass' || layer === 'iceType') color = categoricalLayerColor(data[layer]?.[i] || 0);
   else if (layer === 'elevation') color = multiRamp(v, [[10,52,88],[44,126,150],[106,132,82],[150,128,98],[235,236,226]]);
-  else if (layer === 'water' || layer === 'waterFlow' || layer === 'waterAccess') color = multiRamp(v, [[46,34,30],[44,92,120],[66,170,210],[12,66,140]]);
+  else if (layer === 'water' || layer === 'waterAccess') color = multiRamp(v, [[46,34,30],[44,92,120],[66,170,210],[12,66,140]]);
+  else if (layer === 'waterFlow') color = flowClassColor(data.flowClass?.[i] ?? 0, data.flowMagnitude?.[i] ?? v, data.flowAccumulation?.[i] ?? 0);
+  else if (layer === 'surfaceWater') color = multiRamp(v, [[38,36,42],[36,92,124],[62,168,206],[178,236,246]]);
+  else if (layer === 'flowAccumulation') color = multiRamp(v, [[28,44,56],[42,120,150],[54,214,210],[245,245,180]]);
   else if (layer === 'humidity' || layer === 'rainfall' || layer === 'runoff' || layer === 'cloudCover') color = multiRamp(v, [[82,58,42],[74,118,140],[74,180,210],[210,238,244]]);
   else if (layer === 'temperature') color = tempRamp(v);
   else if (layer === 'ice' || layer === 'albedo') color = multiRamp(v, [[30,54,82],[120,178,212],[222,242,252],[255,255,255]]);
@@ -1775,6 +1980,26 @@ function layerColor(data, i, layer, light, diagnostic) {
 }
 
 
+
+function flowClassColor(code, mag = 0, acc = 0) {
+  const m = clamp01(mag);
+  const a = clamp01(acc);
+  const palette = {
+    0: [44, 50, 52],
+    1: [90, 210, 250],
+    2: [64, 158, 230],
+    3: [40, 230, 198],
+    4: [238, 166, 58],
+    5: [70, 194, 244],
+    6: [106, 250, 228],
+    7: [206, 228, 242],
+    8: [18, 48, 110],
+    9: [150, 154, 160]
+  };
+  const base = palette[Number(code) | 0] || palette[9];
+  const boost = 0.74 + m * 0.18 + a * 0.16;
+  return [base[0] * boost, base[1] * boost, base[2] * boost];
+}
 
 function categoricalLayerColor(code) {
   const palette = [
@@ -1983,7 +2208,12 @@ const TREND_METRICS = Object.freeze([
   { id: 'primitiveLife', label: 'Primitive life', color: '#47d67a', min: 0, max: 1, percent: false },
   { id: 'biosphereHealth', label: 'Biosphere health', color: '#4edbb7', min: 0, max: 1, percent: false },
   { id: 'settlement', label: 'Settlements', color: '#ffd166', min: 0, max: 1, percent: true },
-  { id: 'collapseRisk', label: 'Collapse risk', color: '#ff7f7f', min: 0, max: 1, percent: false }
+  { id: 'collapseRisk', label: 'Collapse risk', color: '#ff7f7f', min: 0, max: 1, percent: false },
+  { id: 'runoffMean', label: 'Runoff', color: '#38bdf8', min: 0, max: 1, percent: false },
+  { id: 'surfaceWaterShare', label: 'Surface water', color: '#67e8f9', min: 0, max: 1, percent: true },
+  { id: 'activeFlowShare', label: 'Active flow', color: '#5eead4', min: 0, max: 1, percent: true },
+  { id: 'basinSinkShare', label: 'Basins/sinks', color: '#fbbf24', min: 0, max: 1, percent: true },
+  { id: 'coastOutletShare', label: 'Coast outlets', color: '#2dd4bf', min: 0, max: 1, percent: true }
 ]);
 
 function initialiseFloatingTrends(ui) {
@@ -2111,7 +2341,7 @@ function drawTrends(ui) {
   });
   const latest = samples[samples.length - 1];
   if (ui.trendsStatus) ui.trendsStatus.textContent = `${samples.length}/${MAX_SAMPLES} samples`;
-  if (ui.trendsReadout && latest) ui.trendsReadout.textContent = `Latest year ${latest.year}: water ${formatPct(latest.waterShare)}, ice ${formatPct(latest.iceShare)}, temp ${formatNum(latest.tempC,1)} °C, collapse ${formatNum(latest.collapseRisk,3)}.`;
+  if (ui.trendsReadout && latest) ui.trendsReadout.textContent = `Latest year ${latest.year}: water ${formatPct(latest.waterShare)}, ice ${formatPct(latest.iceShare)}, temp ${formatNum(latest.tempC,1)} °C, active flow ${formatPct(latest.activeFlowShare || 0)}, basins ${formatPct(latest.basinSinkShare || 0)}, collapse ${formatNum(latest.collapseRisk,3)}.`;
   trendState.lastDrawMs = performance.now() - start;
 }
 
@@ -2192,9 +2422,9 @@ function startWorker() {
     initialGenerateSent = false;
     clearWorkerStartupTimer();
 
-    worker = new Worker('./simulation-worker.js?v=0.2.2');
+    worker = new Worker('./simulation-worker.js?v=0.2.4');
     setStatus(ui, 'Worker: external simulation-worker.js starting.');
-    addEvent(ui, 'External Worker attempted: simulation-worker.js?v=0.2.2.');
+    addEvent(ui, 'External Worker attempted: simulation-worker.js?v=0.2.4.');
 
     worker.addEventListener('message', onWorkerMessage);
     worker.addEventListener('error', (event) => {
